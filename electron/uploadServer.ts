@@ -47,9 +47,11 @@ export class UploadServer extends EventEmitter {
                 return res.status(403).send('Session invalid or expired.');
             }
 
+            /* Multiple uploads allowed now
             if (this.uploadUsed) {
                 return res.status(403).send('One-time upload limit reached.');
             }
+            */
 
             const form = formidable({
                 uploadDir: this.sessionPath, 
@@ -70,7 +72,7 @@ export class UploadServer extends EventEmitter {
                 const uploadedFileLine = Array.isArray(files.file) ? files.file[0] : files.file;
                 
                 if (uploadedFileLine) {
-                    this.uploadUsed = true; // Mark used
+                    // this.uploadUsed = true; // Multiple uploads allowed
                     this.emit('file-uploaded', uploadedFileLine.filepath || uploadedFileLine.newFilename);
                     
                     // Return same page but in "Waiting" mode
@@ -214,6 +216,7 @@ export class UploadServer extends EventEmitter {
                     <span class="status-icon">✅</span>
                     <h2 style="margin: 0 0 10px 0;">Connected</h2>
                     <p style="color: #666; font-size: 14px;">File uploaded successfully.</p>
+                    <button class="btn btn-primary" onclick="window.location.href='/upload?token=${token}'">Upload Another File</button>
                     <div style="background: #fffbe6; border: 1px solid #ffe58f; padding: 15px; border-radius: 8px; margin-top: 20px;">
                         <div class="blink" style="font-weight: 700; color: #d46b08; margin-bottom: 5px;">⚠️ DO NOT CLOSE</div>
                         <div style="font-size: 12px; color: #888;">Please keep this screen open.<br>You will need to authorize printing request from the PC.</div>
