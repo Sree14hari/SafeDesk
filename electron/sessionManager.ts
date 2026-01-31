@@ -15,7 +15,7 @@ import { GeminiPolicyService, PolicyRecommendation, SystemContext } from './gemi
 
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
 const TASK_DIR = 'C:\\SafeDesk\\tasks';
-const DEFAULT_INACTIVITY_MS = 5 * 60 * 1000;
+const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000; // 15 minutes
 
 export interface FileMetadata { name: string; size: number; originalPath: string | null; source: 'IMPORT' | 'SCAN' | 'UPLOAD'; }
 export interface SessionInfo { 
@@ -186,10 +186,15 @@ export class SessionManager extends EventEmitter {
           const recommendedTimeoutMs = rec.recommended_timeout_minutes * 60 * 1000;
           const safeTimeout = Math.min(DEFAULT_INACTIVITY_MS, recommendedTimeoutMs);
           
+          console.log(`[PolicyEngine] AI Recommendation: ${rec.recommended_timeout_minutes}min (${rec.risk_level}) - "${rec.reason}"`);
+          console.log(`[PolicyEngine] Timeout Decision: Baseline=${DEFAULT_INACTIVITY_MS/1000}s, AI=${recommendedTimeoutMs/1000}s, Final=${safeTimeout/1000}s`);
+          
           if (safeTimeout !== this.currentTimeout) {
-              console.log(`[PolicyEngine] Adjusting timeout: ${this.currentTimeout/1000}s -> ${safeTimeout/1000}s (Reason: ${rec.reason})`);
+              console.log(`[PolicyEngine] ⚠️ TIMEOUT CHANGED: ${this.currentTimeout/1000}s -> ${safeTimeout/1000}s`);
               this.currentTimeout = safeTimeout;
               this.startInactivityTimer(); // Restart timer with new duration
+          } else {
+              console.log(`[PolicyEngine] ✓ Timeout unchanged at ${safeTimeout/1000}s`);
           }
 
           this.currentPolicy = rec;
@@ -299,8 +304,8 @@ export class SessionManager extends EventEmitter {
       this.startInactivityTimer();
       
       // Start AI Policy Heartbeat (every 5 minutes to conserve API quota)
-      // First check will happen after 5 minutes
       this.policyInterval = setInterval(() => this.updateSafetyPolicy(), 300 * 1000);
+      this.updateSafetyPolicy(); // Initial check - runs immediately
       
       if (this.sessionType === 'TASK' && this.sessionPath) {
           this.taskBrowser = new TaskBrowser(this.sessionPath, this.activeSessionId!);
