@@ -47,10 +47,11 @@ app.whenReady().then(async () => {
       }
   });
 
-  sessionManager.on('session-ended', (reason: string) => {
+  // Updated to include failures list
+  sessionManager.on('session-ended', (reason: string, failures: string[]) => {
       console.log(`Main Process: Sending session-ended (${reason})`);
       if (mainWindow) {
-          mainWindow.webContents.send('session:ended', reason);
+          mainWindow.webContents.send('session:ended', reason, failures);
       }
   });
 
@@ -60,9 +61,9 @@ app.whenReady().then(async () => {
       console.log(`Main Process: Session ${sessionId} started`);
       event.sender.send('session:created', sessionId);
       sendSessionInfo(event.sender);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error starting session:', err);
-      event.sender.send('session:status', 'Error starting session');
+      event.sender.send('session:status', `Error starting session: ${err.message}`);
     }
   });
 

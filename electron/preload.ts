@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onSessionCreated: (callback: (event: any, sessionId: string) => void) =>
     ipcRenderer.on('session:created', callback),
 
-  onSessionEnded: (callback: (event: any, reason: string) => void) =>
+  onSessionEnded: (callback: (event: any, reason: string, failures: string[]) => void) =>
     ipcRenderer.on('session:ended', callback),
 
   onFilesUpdated: (callback: (event: any, files: Array<{name: string, size: number}>) => void) =>

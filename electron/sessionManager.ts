@@ -90,7 +90,7 @@ export class SessionManager extends EventEmitter {
       
       const oldId = this.activeSessionId;
       const oldPath = this.sessionPath;
-      const filesToDestroy = [...this.importedFiles]; // Snapshot files to destroy
+      const filesToDestroy = [...this.importedFiles];
 
       // Reset State Early (Memory)
       this.activeSessionId = null;
@@ -99,19 +99,26 @@ export class SessionManager extends EventEmitter {
       this.totalSize = 0;
       this.startTime = null;
 
-      // 1. Wipe Source Files (Destructive requirement)
+      const wipeFailures: string[] = [];
+
+      // 1. Wipe Source Files (Destructive)
       if (filesToDestroy.length > 0) {
           console.log('[SessionManager] DESTROYING ORIGINAL SOURCE FILES...');
           for (const file of filesToDestroy) {
-             console.log(`[SessionManager] Securely Wiping Source: ${file.originalPath}`);
-             await secureDeleteFile(file.originalPath);
+             const result = await secureDeleteFile(file.originalPath);
+             if (!result.success) {
+                 wipeFailures.push(`${file.originalPath} (${result.error})`);
+             }
           }
       }
 
       // 2. Wipe Session Workspace
       const wipeSuccess = await secureWipeSession(oldPath);
+      if (!wipeSuccess) {
+          wipeFailures.push(`Session Workspace: ${oldPath} (Directory not fully removed)`);
+      }
       
-      const status = wipeSuccess ? 'ENDED' : 'WIPE_FAILED';
+      const status = wipeFailures.length === 0 ? 'ENDED' : 'WIPE_FAILED';
 
       this.persistence.saveState({
           lastSessionId: oldId,
@@ -121,7 +128,7 @@ export class SessionManager extends EventEmitter {
       });
 
       this.isWiping = false;
-      this.emit('session-ended', reason);
+      this.emit('session-ended', reason, wipeFailures);
   }
 
   // --- Timeouts ---
@@ -179,7 +186,6 @@ export class SessionManager extends EventEmitter {
         
         await fs.copy(src, dest);
         
-        // Track Original Path for Destruction
         const metadata: FileMetadata = { 
             name: safeName, 
             size: stats.size,

@@ -20,6 +20,7 @@ export default function Home() {
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [isImporting, setIsImporting] = useState(false);
   const [endReason, setEndReason] = useState<string | null>(null);
+  const [wipeFailures, setWipeFailures] = useState<string[]>([]);
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -31,13 +32,21 @@ export default function Home() {
         setStatus(`Session Active`);
         setFiles([]); 
         setEndReason(null);
+        setWipeFailures([]);
       });
 
-      window.electronAPI.onSessionEnded((_event, reason) => {
+      window.electronAPI.onSessionEnded((_event, reason, failures) => {
           setSessionInfo({ id: null, startTime: null, totalSize: 0, fileCount: 0 });
           setFiles([]);
           setStatus('No Active Session');
-          setEndReason(`Session Ended (${reason}). Original source files and session copies have been securely destroyed.`);
+          
+          if (failures && failures.length > 0) {
+              setEndReason(`Session Ended (${reason}). WARNING: Some files could not be destroyed.`);
+              setWipeFailures(failures);
+          } else {
+              setEndReason(`Session Ended (${reason}). Original source files and session copies have been securely destroyed.`);
+              setWipeFailures([]);
+          }
       });
 
       window.electronAPI.onFilesUpdated((_event, newFiles) => {
@@ -56,6 +65,7 @@ export default function Home() {
     if (window.electronAPI) {
       window.electronAPI.startSession();
       setStatus('Initializing Secure Disposition Workspace...');
+      setWipeFailures([]); // Clear previous errors
     }
   };
 
@@ -107,7 +117,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+      <main style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box', overflowY: 'auto' }}>
         
         {/* Trust Banner */}
         <div style={{ backgroundColor: '#fff3cd', border: '1px solid #ffeeba', padding: '12px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', color: '#856404' }}>
@@ -115,8 +125,23 @@ export default function Home() {
             <span style={{ fontSize: '14px', fontWeight: 600 }}>Secure Disposition: Any file imported here will be WIPED from your computer when the session ends.</span>
         </div>
 
-        {endReason && !sessionInfo.id && (
-            <div style={{ marginBottom: '20px', padding: '20px', background: '#ffebee', color: '#b71c1c', borderRadius: '8px', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '15px' }}>
+        {wipeFailures.length > 0 && (
+            <div style={{ marginBottom: '20px', padding: '20px', background: '#ffebee', color: '#b71c1c', borderRadius: '8px', border: '1px solid #ffcdd2' }}>
+                <h3 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>❌</span> PARTIAL FAILURE - FILES REMAINING
+                </h3>
+                <p style={{ margin: '0 0 10px 0' }}>The following files could not be destroyed (likely locked by another application):</p>
+                <ul style={{ margin: 0, paddingLeft: '20px', fontFamily: 'monospace', fontSize: '13px' }}>
+                    {wipeFailures.map((fail, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{fail}</li>
+                    ))}
+                </ul>
+                <p style={{ marginTop: '10px', fontSize: '13px', fontWeight: 600 }}>ACTION: Close any applications using these files and try manually deleting them.</p>
+            </div>
+        )}
+
+        {endReason && !sessionInfo.id && wipeFailures.length === 0 && (
+            <div style={{ marginBottom: '20px', padding: '20px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '8px', border: '1px solid #c8e6c9', display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontSize: '24px' }}>🗑️</span>
                 <div>
                     <h3 style={{ margin: '0 0 5px 0' }}>Destruction Complete</h3>
@@ -144,6 +169,7 @@ export default function Home() {
                     width: '100%',
                     transition: 'opacity 0.2s'
                   }}
+                  disabled={wipeFailures.length > 0} // Prevent new session until they acknowledge (refresh app)
                 >
                   Start Secure Session
                 </button>

@@ -2,8 +2,13 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
-const RETRY_ATTEMPTS = 5;
+const RETRY_ATTEMPTS = 10; // Increased
 const RETRY_DELAY_MS = 300;
+
+export interface WipeResult {
+    success: boolean;
+    error?: string;
+}
 
 async function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -27,17 +32,23 @@ async function withRetry<T>(operation: () => Promise<T>, opName: string): Promis
     throw lastError;
 }
 
-export async function secureDeleteFile(filePath: string): Promise<void> {
+export async function secureDeleteFile(filePath: string): Promise<WipeResult> {
     // If file doesn't exist, we consider it "wiped"
-    if (!await fs.pathExists(filePath)) return;
+    if (!await fs.pathExists(filePath)) return { success: true };
 
     try {
+        // 0. Force Permissions (Remove Read-Only)
+        try {
+            await fs.chmod(filePath, 0o666);
+        } catch (e) {
+            // Ignore chmod errors, might not be relevant on Windows or not owned
+        }
+
         const stats = await fs.stat(filePath);
         const size = stats.size;
 
         if (size > 0) {
             // 1. Overwrite with random bytes
-            // Ensure we handle file open/close robustly
             let fd: number | null = null;
             try {
                 fd = await withRetry(() => fs.open(filePath, 'r+'), `Open ${path.basename(filePath)}`);
@@ -70,14 +81,18 @@ export async function secureDeleteFile(filePath: string): Promise<void> {
         await withRetry(() => fs.unlink(newPath), 'Final Unlink');
         
         console.log(`[SecureWipe] DESTROYED: ${filePath}`);
+        return { success: true };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error(`[SecureWipe] Failed to wipe ${filePath}:`, error);
+        
         // Fallback: Force remove (fs-extra)
         try {
-            await fs.remove(filePath);
-        } catch (e) {
+            await withRetry(() => fs.remove(filePath), 'Force Remove');
+            return { success: true };
+        } catch (e: any) {
             console.error('[SecureWipe] Absolute failure to remove:', filePath, e);
+            return { success: false, error: e.message || String(e) };
         }
     }
 }
@@ -99,16 +114,11 @@ export async function secureWipeSession(dirPath: string): Promise<boolean> {
             }
         }
 
-        // Drop the directory
         await withRetry(() => fs.rmdir(dirPath), 'Remove Session Dir');
         
         if (fs.existsSync(dirPath)) {
-             // Final sanity check - sometimes slight delay in FS update
              await sleep(200);
-             if (fs.existsSync(dirPath)) {
-                 console.error('[SecureWipe] CRITICAL: Directory persists.');
-                 return false;
-             }
+             if (fs.existsSync(dirPath)) return false;
         }
 
         console.log('[SecureWipe] Clean.');
