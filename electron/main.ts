@@ -102,7 +102,7 @@ app.whenReady().then(async () => {
       if (sessionManager.getMode() === 'OWNER') {
           throw new Error("Cannot start session in Owner/Disposal Mode.");
       }
-      const sessionId = await sessionManager.startSession();
+      const sessionId = await sessionManager.startSession('PRINT'); // Default to PRINT for legacy/standard start
       console.log(`Main Process: Session ${sessionId} started`);
       event.sender.send('session:created', sessionId);
       sendSessionInfo(event.sender);
@@ -110,6 +110,29 @@ app.whenReady().then(async () => {
       console.error('Error starting session:', err);
       event.sender.send('session:status', `Error starting session: ${err.message}`);
     }
+  });
+
+  ipcMain.on('task:start', async (event) => {
+    try {
+      if (sessionManager.getMode() === 'OWNER') {
+          throw new Error("Cannot start session in Owner/Disposal Mode.");
+      }
+      const sessionId = await sessionManager.startSession('TASK');
+      console.log(`Main Process: Task Session ${sessionId} started`);
+      event.sender.send('session:created', sessionId);
+      sendSessionInfo(event.sender);
+    } catch (err: any) {
+      console.error('Error starting task session:', err);
+      event.sender.send('session:status', `Error starting task session: ${err.message}`);
+    }
+  });
+
+  ipcMain.on('task:launch-browser', async (event) => {
+      try {
+          await sessionManager.launchBrowser();
+      } catch (err: any) {
+          console.error('Error launching browser:', err);
+      }
   });
 
   ipcMain.on('session:end', (event) => {

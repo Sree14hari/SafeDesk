@@ -14,6 +14,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   scanResidue: (options?: any) => ipcRenderer.invoke('residue:scan', options),
   cleanResidue: (files: any[]) => ipcRenderer.invoke('residue:clean', files),
   
+  // Phase 6: Ephemeral Task Zone
+  startTaskSession: () => ipcRenderer.send('task:start'),
+  launchTaskBrowser: () => ipcRenderer.send('task:launch-browser'),
+  
   onSessionStatus: (callback: (event: any, value: string) => void) => 
     ipcRenderer.on('session:status', callback),
     

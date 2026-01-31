@@ -44,6 +44,9 @@ declare global {
       scanResidue: (options?: any) => Promise<InspectionReport>;
       cleanResidue: (files: ResidueFile[]) => Promise<CleanupReport>;
       
+      startTaskSession: () => void;
+      launchTaskBrowser: () => void;
+      
       onSessionStatus: (callback: (event: any, value: string) => void) => void;
       onSessionCreated: (callback: (event: any, sessionId: string) => void) => void;
       onSessionEnded: (callback: (event: any, reason: string, failures: string[]) => void) => void;

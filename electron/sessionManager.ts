@@ -9,12 +9,14 @@ import { AuditLogger } from './auditLogger';
 import { UploadServer } from './uploadServer';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
+import { TaskBrowser } from './taskBrowser';
 
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
+const TASK_DIR = 'C:\\SafeDesk\\tasks';
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
 export interface FileMetadata { name: string; size: number; originalPath: string | null; source: 'IMPORT' | 'SCAN' | 'UPLOAD'; }
-export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; state: SystemState; mode: SystemMode; uploadUrl?: string | null; }
+export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; state: SystemState; mode: SystemMode; type: 'PRINT' | 'TASK'; uploadUrl?: string | null; }
 
 export type SystemMode = 'CUSTOMER' | 'OWNER';
 
@@ -34,10 +36,12 @@ export class SessionManager extends EventEmitter {
   private auditLogger: AuditLogger;
   private uploadServer: UploadServer;
   private uploadUrl: string | null = null;
+  private taskBrowser: TaskBrowser | null = null;
 
   // Strict State Machine
   private state: SystemState = 'IDLE';
   private mode: SystemMode = 'CUSTOMER';
+  private sessionType: 'PRINT' | 'TASK' = 'PRINT';
 
   constructor() {
     super();
@@ -163,7 +167,7 @@ export class SessionManager extends EventEmitter {
       }
   }
 
-  public async startSession(): Promise<string> {
+  public async startSession(type: 'PRINT' | 'TASK' = 'PRINT'): Promise<string> {
     if (this.mode === 'OWNER') {
         throw new Error("Cannot start Customer Session in Owner Mode.");
     }
@@ -175,11 +179,17 @@ export class SessionManager extends EventEmitter {
          throw new Error(`System is not ready (Current State: ${this.state})`);
     }
 
+    this.sessionType = type;
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
-    this.activeSessionId = `session_${timestamp}_${random}`;
     
-    this.sessionPath = path.join(BASE_DIR, this.activeSessionId);
+    if (type === 'TASK') {
+        this.activeSessionId = `task_${timestamp}_${random}`;
+        this.sessionPath = path.join(TASK_DIR, this.activeSessionId);
+    } else {
+        this.activeSessionId = `session_${timestamp}_${random}`;
+        this.sessionPath = path.join(BASE_DIR, this.activeSessionId);
+    }
     this.startTime = timestamp;
     this.totalSize = 0;
     this.importedFiles = [];
@@ -203,10 +213,29 @@ export class SessionManager extends EventEmitter {
       }
 
       this.startInactivityTimer();
+      
+      if (this.sessionType === 'TASK' && this.sessionPath) {
+          this.taskBrowser = new TaskBrowser(this.sessionPath, this.activeSessionId!);
+          // Auto-launch
+          try {
+              await this.launchBrowser();
+          } catch (browserErr: any) {
+              console.error('[SessionManager] Failed to launch browser:', browserErr);
+              await this.endSession('START_FAILED'); 
+              throw new Error(`Browser launch failed: ${browserErr.message}`);
+          }
+      }
+
       return this.activeSessionId;
 
     } catch (error) {
       console.error('Failed to create session directory:', error);
+      // Ensure we don't leave a half-open state if we already transitioned
+      // We check if we managed to set an ID, which implies we passed the initial checks
+      if (this.activeSessionId) {
+           this.state = 'DESTRUCTION_IN_PROGRESS'; // Force state for cleanup
+           await this.endSession('STARTUP_ERROR');
+      }
       throw error;
     }
   }
@@ -265,8 +294,14 @@ export class SessionManager extends EventEmitter {
       await this.auditLogger.logWipeStart();
       
       this.clearInactivityTimer();
+      this.clearInactivityTimer();
       this.printManager.closeAll();
       this.viewerManager.closeAll();
+      
+      if (this.taskBrowser) {
+        await this.taskBrowser.cleanup();
+        this.taskBrowser = null;
+      }
       
       const targetPath = this.sessionPath;
 
@@ -369,6 +404,12 @@ export class SessionManager extends EventEmitter {
        return this.importedFiles;
   }
 
+  public async launchBrowser() {
+      if (this.state === 'ACTIVE_SESSION' && this.sessionType === 'TASK' && this.taskBrowser) {
+          await this.taskBrowser.launch();
+      }
+  }
+
   public async importFiles(sourcePaths: string[]): Promise<FileMetadata[]> {
     if (this.state !== 'ACTIVE_SESSION') throw new Error('No active session');
     // strict check: imported files allowed?
@@ -416,6 +457,7 @@ export class SessionManager extends EventEmitter {
       fileCount: this.importedFiles.length,
       state: this.state,
       mode: this.mode,
+      type: this.sessionType,
       uploadUrl: this.uploadUrl
     };
   }

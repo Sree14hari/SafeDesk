@@ -16,7 +16,8 @@ import {
   Activity,
   Lock,
   Search,
-  Smartphone
+  Smartphone,
+  Globe
 } from 'lucide-react';
 
 interface SessionInfo {
@@ -25,6 +26,7 @@ interface SessionInfo {
     totalSize: number;
     fileCount: number;
     uploadUrl?: string | null;
+    type?: 'PRINT' | 'TASK';
 }
 interface FileMetadata {
   name: string;
@@ -102,9 +104,23 @@ export default function Home() {
   const handleStartSession = () => {
     if (window.electronAPI) {
       window.electronAPI.startSession();
-      setStatus('Initializing Secure Disposition Workspace...');
+      setStatus('Initializing Secure Print Zone...');
       setWipeFailures([]);
     }
+  };
+
+  const handleStartTaskSession = () => {
+    if (window.electronAPI) {
+      window.electronAPI.startTaskSession();
+      setStatus('Initializing Ephemeral Task Zone...');
+      setWipeFailures([]);
+    }
+  };
+
+  const handleLaunchBrowser = () => {
+      if (window.electronAPI) {
+           window.electronAPI.launchTaskBrowser();
+      }
   };
 
   const handleEndSession = () => {
@@ -218,9 +234,16 @@ export default function Home() {
 
             {sessionInfo.id && (
                 <>
-                <button className="bh-btn bh-btn-action" onClick={handleScan}>
-                    <ScanLine size={16} /> Scan Paper
-                </button>
+                {sessionInfo.type === 'PRINT' && (
+                    <button className="bh-btn bh-btn-action" onClick={handleScan}>
+                        <ScanLine size={16} /> Scan Paper
+                    </button>
+                )}
+                {sessionInfo.type === 'TASK' && (
+                     <button className="bh-btn bh-btn-action" onClick={handleLaunchBrowser} style={{background: '#2196F3'}}>
+                        <Globe size={16} /> Open Secure Browser
+                    </button>
+                )}
                 <div style={{width:'2px', height:'30px', background:'black'}}></div>
                 <button className="bh-btn bh-btn-danger" onClick={handleEndSession}>
                     <Trash2 size={16} /> Destroy Session
@@ -236,7 +259,7 @@ export default function Home() {
         {/* Trust Banner */}
         <div className="bh-banner">
             <Lock size={24} />
-            <span style={{ fontSize: '14px' }}>SECURE DISPOSITION: All files imported here will be DESTROYED from source upon session completion.</span>
+            <span style={{ fontSize: '14px' }}>SECURE PRINT ZONE: All files imported here will be DESTROYED from source upon session completion.</span>
         </div>
 
         {wipeFailures.length > 0 && (
@@ -265,14 +288,14 @@ export default function Home() {
 
         {/* Phase 5 & 6: IDLE Screen Layout */}
         {!sessionInfo.id && (
-            <div className="bh-grid" style={{ alignItems: 'start', gridTemplateColumns: 'minmax(300px, 1.5fr) minmax(300px, 1fr)' }}>
+            <div className="bh-grid" style={{ alignItems: 'start', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
                 
                 {/* 1. Start Disposition Session (Primary Action) */}
                 <div className="bh-card" style={{ textAlign: 'center', padding: '40px' }}>
                     <div style={{width:'80px', height:'80px', background:'var(--bh-black)', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <Shield size={40} color="white" />
                     </div>
-                    <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>Start Disposition Session</h2>
+                    <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>Print Zone</h2>
                     <p style={{ marginBottom: '30px' }}>Securely review, print, and destroy sensitive documents in an isolated environment.</p>
                     <button 
                         onClick={handleStartSession}
@@ -355,6 +378,23 @@ export default function Home() {
                             )}
                         </div>
                     )}
+                </div>
+
+                {/* 3. Ephemeral Task Zone */}
+                <div className="bh-card" style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', border: '2px dashed #ccc' }}>
+                     <div style={{width:'60px', height:'60px', background:'#666', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        <Clock size={30} color="white" />
+                     </div>
+                     <h2 style={{ textTransform:'uppercase', fontWeight: 900, fontSize: '18px' }}>Ephemeral Task Zone</h2>
+                     <p style={{ marginBottom: '30px', fontSize: '13px' }}>Temporary workspace for online forms & uploads. Auto-destroys on exit.</p>
+                     <button 
+                        onClick={handleStartTaskSession}
+                        className="bh-btn bh-btn-primary"
+                        style={{ width: '100%', justifyContent: 'center', background: '#444' }}
+                        disabled={wipeFailures.length > 0} 
+                     >
+                        Start Task Mode
+                     </button>
                 </div>
             </div>
         )}
