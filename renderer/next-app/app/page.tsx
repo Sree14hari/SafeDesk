@@ -87,9 +87,9 @@ export default function Home() {
           }
       });
 
-      window.electronAPI.onFilesUpdated((_event, newFiles) => {
-         setFiles(prev => [...prev, ...newFiles]);
-         setStatus(`Imported ${newFiles.length} file(s)`);
+      window.electronAPI.onFilesUpdated((_event, updatedFiles) => {
+         console.log('Files updated:', updatedFiles);
+         setFiles(updatedFiles);
          setIsProcessing(false);
       });
       
@@ -134,6 +134,12 @@ export default function Home() {
   const handlePreview = (fileName: string) => {
       if (window.electronAPI) {
           window.electronAPI.previewFile(fileName);
+      }
+  };
+
+  const handleDeleteFile = async (fileName: string) => {
+      if (window.electronAPI && confirm(`Permanently destroy "${fileName}"? This cannot be undone.`)) {
+          await window.electronAPI.deleteFile(fileName);
       }
   };
   
@@ -438,6 +444,12 @@ export default function Home() {
                                 title="Print"
                                 className="bh-btn bh-btn-white" style={{padding: '6px'}}>
                                    <Printer size={16} />
+                               </button>
+                               <button 
+                                onClick={() => handleDeleteFile(file.name)}
+                                title="Secure Delete"
+                                className="bh-btn bh-btn-danger" style={{padding: '6px'}}>
+                                   <Trash2 size={16} />
                                </button>
                            </div>
                          </div>

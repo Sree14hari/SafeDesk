@@ -211,6 +211,43 @@ export class SessionManager extends EventEmitter {
     }
   }
 
+  public async deleteFile(fileName: string) {
+      if (this.state !== 'ACTIVE_SESSION' || !this.sessionPath) return;
+      
+      const fullPath = path.join(this.sessionPath, fileName);
+      const fileIndex = this.importedFiles.findIndex(f => f.name === fileName);
+
+      if (fileIndex === -1) {
+          console.warn(`[SessionManager] Delete requested for "${fileName}" but it's not in registry. Checking disk...`);
+          // Graceful handling: If file exists on disk but not in list, delete it. If neither, it's already done.
+          if (await fs.pathExists(fullPath)) {
+               await secureDeleteFile(fullPath);
+               console.log(`[SessionManager] Orphaned file "${fileName}" deleted from disk.`);
+          } else {
+               console.log(`[SessionManager] File "${fileName}" already deleted. Ignoring.`);
+          }
+          // Sync UI just in case
+          this.emit('files-updated', this.importedFiles);
+          return;
+      }
+      
+      const file = this.importedFiles[fileIndex];
+      
+      console.log(`[SessionManager] Securely deleting: ${fileName}`);
+      
+      // Destroy physical file in session
+      await secureDeleteFile(fullPath);
+      
+      // Remove from list
+      this.importedFiles.splice(fileIndex, 1);
+      
+      // Emit updates
+      this.emit('files-updated', this.importedFiles);
+      this.emit('session-info-updated', this.getSessionInfo());
+      
+      await this.auditLogger.logAction('Local Delete', `Deleted file: ${fileName}`);
+  }
+
   public async endSession(reason: string) {
       if (this.state !== 'ACTIVE_SESSION') return;
       if (!this.activeSessionId || !this.sessionPath) return;

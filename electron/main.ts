@@ -163,6 +163,18 @@ app.whenReady().then(async () => {
       }
   });
 
+  ipcMain.handle('files:delete', async (event, fileName: string) => {
+      try {
+          console.log(`[Main] Deleting file: ${fileName}`);
+          await sessionManager.deleteFile(fileName);
+          sendSessionInfo(event.sender);
+          return true;
+      } catch (err: any) {
+         console.error('[Main] Delete failed:', err);
+         throw err;
+      }
+  });
+
   ipcMain.on('files:scan', async (event) => {
       try {
           // Allowed in Session

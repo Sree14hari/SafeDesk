@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   printFile: (fileName: string) => ipcRenderer.send('files:print', fileName),
   previewFile: (fileName: string) => ipcRenderer.send('files:preview', fileName),
+  deleteFile: (fileName: string) => ipcRenderer.invoke('files:delete', fileName),
   triggerScan: () => ipcRenderer.send('files:scan'),
   
   // Phase 5: Residue Guard

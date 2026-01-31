@@ -38,6 +38,7 @@ declare global {
       triggerFileImport: () => void;
       printFile: (fileName: string) => void;
       previewFile: (fileName: string) => void;
+      deleteFile: (fileName: string) => Promise<void>;
       triggerScan: () => void;
       
       scanResidue: (options?: any) => Promise<InspectionReport>;
