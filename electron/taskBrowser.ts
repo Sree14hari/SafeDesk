@@ -121,6 +121,61 @@ export class TaskBrowser {
             }
         })();
 
+        // 5. Inject Floating Back Button
+        // Ensures navigation is always possible even in fullscreen/kiosk-like sites
+        this.window.webContents.on('did-finish-load', () => {
+            const css = `
+                #etz-back-fab {
+                    position: fixed;
+                    bottom: 20px;
+                    left: 20px;
+                    width: 48px;
+                    height: 48px;
+                    background: #111;
+                    border: 2px solid #444;
+                    border-radius: 50%;
+                    color: white;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    z-index: 9999999;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                    transition: transform 0.2s, background 0.2s;
+                    user-select: none;
+                    font-family: sans-serif;
+                }
+                #etz-back-fab:hover { transform: scale(1.1); background: #000; border-color: #fff; }
+                #etz-back-fab:active { transform: scale(0.95); }
+                #etz-back-fab svg { width: 24px; height: 24px; fill: none; stroke: white; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+            `;
+            
+            const js = `
+                if (!document.getElementById('etz-back-fab')) {
+                    const btn = document.createElement('div');
+                    btn.id = 'etz-back-fab';
+                    btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>';
+                    btn.title = 'Go Back (Secure Zone)';
+                    btn.onclick = (e) => { 
+                        e.stopPropagation(); 
+                        window.history.back(); 
+                    };
+                    document.body.appendChild(btn);
+                    
+                    // Prevent site from deleting it easily
+                    const observer = new MutationObserver((mutations) => {
+                        if (!document.body.contains(btn)) {
+                            document.body.appendChild(btn);
+                        }
+                    });
+                    observer.observe(document.body, { childList: true });
+                }
+            `;
+
+            this.window?.webContents.insertCSS(css).catch(() => {});
+            this.window?.webContents.executeJavaScript(js).catch(() => {});
+        });
+
         this.window.loadURL(homeUrl);
 
         this.window.on('closed', () => {

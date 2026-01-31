@@ -288,10 +288,10 @@ export default function Home() {
 
         {/* Phase 5 & 6: IDLE Screen Layout */}
         {!sessionInfo.id && (
-            <div className="bh-grid" style={{ alignItems: 'start', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+            <div className="bh-grid" style={{ alignItems: 'stretch', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
                 
                 {/* 1. Start Disposition Session (Primary Action) */}
-                <div className="bh-card" style={{ textAlign: 'center', padding: '40px' }}>
+                <div className="bh-card" style={{ textAlign: 'center', padding: '40px', display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <div style={{width:'80px', height:'80px', background:'var(--bh-black)', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <Shield size={40} color="white" />
                     </div>
@@ -300,7 +300,7 @@ export default function Home() {
                     <button 
                         onClick={handleStartSession}
                         className="bh-btn bh-btn-primary"
-                        style={{ width: '100%', justifyContent: 'center' }}
+                        style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
                         disabled={wipeFailures.length > 0} 
                     >
                         Start Secure Session
@@ -308,7 +308,7 @@ export default function Home() {
                 </div>
 
                 {/* 2. Residue Guard (Secondary Action) */}
-                <div className="bh-card">
+                <div className="bh-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                         <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', textTransform:'uppercase', fontSize: '16px' }}>
                             <Search size={20} /> Data Residue Guard
@@ -381,7 +381,7 @@ export default function Home() {
                 </div>
 
                 {/* 3. Ephemeral Task Zone */}
-                <div className="bh-card" style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', border: '2px dashed #ccc' }}>
+                <div className="bh-card" style={{ textAlign: 'center', padding: '40px', background: '#f5f5f5', border: '2px dashed #ccc', display: 'flex', flexDirection: 'column', height: '100%' }}>
                      <div style={{width:'60px', height:'60px', background:'#666', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <Clock size={30} color="white" />
                      </div>
@@ -390,8 +390,8 @@ export default function Home() {
                      <button 
                         onClick={handleStartTaskSession}
                         className="bh-btn bh-btn-primary"
-                        style={{ width: '100%', justifyContent: 'center', background: '#444' }}
-                        disabled={wipeFailures.length > 0} 
+                        style={{ width: '100%', justifyContent: 'center', background: '#444', marginTop: 'auto' }}
+                        disabled={wipeFailures.length > 0}  
                      >
                         Start Task Mode
                      </button>

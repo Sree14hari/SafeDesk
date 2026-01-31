@@ -76,7 +76,7 @@ export class SessionManager extends EventEmitter {
             this.totalSize += stats.size;
             
             // Notify Main -> UI
-            this.emit('files-updated', [metadata]);
+            this.emit('files-updated', this.importedFiles);
             this.emit('session-info-updated', this.getSessionInfo());
 
             await this.auditLogger.logAction("Secure Upload", "Received file via Local QR Ingress");

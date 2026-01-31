@@ -85,12 +85,20 @@ export class UploadServer extends EventEmitter {
                     return res.status(500).send('Upload failed.');
                 }
 
-                const uploadedFileLine = Array.isArray(files.file) ? files.file[0] : files.file;
+                const fileList: formidable.File[] = Array.isArray(files.file) ? files.file : [files.file];
                 
-                if (uploadedFileLine) {
-                    // this.uploadUsed = true; // Multiple uploads allowed
-                    this.emit('file-uploaded', uploadedFileLine.filepath || uploadedFileLine.newFilename);
-                    
+                let count = 0;
+                for (const f of fileList) {
+                    if (f) {
+                         const finalPath = f.filepath || f.newFilename; // formidable v3
+                         if (finalPath) {
+                             this.emit('file-uploaded', finalPath);
+                             count++;
+                         }
+                    }
+                }
+                
+                if (count > 0) {
                     // Return same page but in "Waiting" mode
                     res.send(this.getMobilePageHtml(token, true));
                 } else {
@@ -229,8 +237,8 @@ export class UploadServer extends EventEmitter {
                     <form action="/upload?token=${token}" method="post" enctype="multipart/form-data">
                         <div style="border: 2px dashed #ddd; padding: 40px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer;" onclick="document.getElementById('f').click()">
                             <span style="font-size:30px">📄</span><br><br>
-                            <span id="fName">Tap to Select File</span>
-                            <input type="file" id="f" name="file" style="display:none" onchange="document.getElementById('fName').textContent = this.files[0].name">
+                            <span id="fName">Tap to Select Files</span>
+                            <input type="file" id="f" name="file" multiple style="display:none" onchange="const c = this.files.length; document.getElementById('fName').textContent = c > 1 ? c + ' files selected' : this.files[0].name">
                         </div>
                         <button class="btn btn-primary" type="submit">SECURE UPLOAD</button>
                     </form>
