@@ -5,7 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   endSession: () => ipcRenderer.send('session:end'),
   triggerFileImport: () => ipcRenderer.send('files:trigger-import'),
   
-  printFile: (fileName: string) => ipcRenderer.send('files:print', fileName),
+  printFile: (fileName: string, deviceName?: string) => ipcRenderer.send('files:print', fileName, deviceName),
+  getPrinters: () => ipcRenderer.invoke('files:get-printers'),
   previewFile: (fileName: string) => ipcRenderer.send('files:preview', fileName),
   deleteFile: (fileName: string) => ipcRenderer.invoke('files:delete', fileName),
   triggerScan: () => ipcRenderer.send('files:scan'),
