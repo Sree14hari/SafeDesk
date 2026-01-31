@@ -5,7 +5,7 @@ const STORE_FILE = 'C:\\SafeDesk\\session-store.json';
 
 export interface PersistentState {
     lastSessionId: string | null;
-    status: 'ACTIVE' | 'ENDED';
+    status: 'ACTIVE' | 'ENDED' | 'WIPE_FAILED';
     path: string | null;
     timestamp: number;
 }

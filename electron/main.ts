@@ -36,12 +36,17 @@ const sendSessionInfo = (target: any) => {
 };
 
 app.whenReady().then(async () => {
-  // 1. Crash Recovery on Startup
   await sessionManager.recoverSessions();
 
   createWindow();
 
-  // 2. Lifecycle Event Listener from SessionManager
+  sessionManager.on('session-wiping', () => {
+      console.log('Main Process: Wiping started, notifying UI');
+      if (mainWindow) {
+          mainWindow.webContents.send('session:status', 'Securely Destroying Session Data...');
+      }
+  });
+
   sessionManager.on('session-ended', (reason: string) => {
       console.log(`Main Process: Sending session-ended (${reason})`);
       if (mainWindow) {
@@ -49,7 +54,6 @@ app.whenReady().then(async () => {
       }
   });
 
-  // 3. IPC Handlers
   ipcMain.on('session:start', async (event) => {
     try {
       const sessionId = await sessionManager.startSession();

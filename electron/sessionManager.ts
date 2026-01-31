@@ -2,6 +2,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { PersistenceManager } from './persistenceManager';
 import { EventEmitter } from 'events';
+import { secureWipeSession } from './secureWipe';
 
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
@@ -31,15 +32,18 @@ export class SessionManager extends EventEmitter {
   public async recoverSessions() {
       const state = this.persistence.loadState();
       
-      if (state.status === 'ACTIVE' && state.lastSessionId) {
-          console.warn(`[SessionManager] Detected crash/unsafe exit for session ${state.lastSessionId}. Forcing close.`);
-          // Logic: We don't resume. We ensure it's marked as ended.
-          // Optional: We could delete the folder here if "auto-wipe" was in scope.
-          this.persistence.saveState({
-              ...state,
-              status: 'ENDED' // Force end
-          });
-          // Notify (though no UI yet)? Just log.
+      // Check if there was an active session that wasn't closed properly
+      if (state.lastSessionId && state.path && fs.existsSync(state.path)) {
+          console.warn(`[SessionManager] Detected crash/unsafe exit for session ${state.lastSessionId}. Initiating Secure Wipe.`);
+          
+          const success = await secureWipeSession(state.path);
+          
+          if (success) {
+             console.log('[SessionManager] Recovery wipe successful.');
+             this.persistence.saveState({ ...state, status: 'ENDED' });
+          } else {
+             console.error('[SessionManager] Recovery wipe partial/failed.');
+          }
       } else {
           console.log('[SessionManager] Clean startup. No active sessions recovered.');
       }
@@ -79,28 +83,34 @@ export class SessionManager extends EventEmitter {
     }
   }
 
-  public endSession(reason: string) {
-      if (!this.activeSessionId) return;
+  public async endSession(reason: string) {
+      if (!this.activeSessionId || !this.sessionPath) return;
 
       console.log(`[SessionManager] Ending session ${this.activeSessionId}. Reason: ${reason}`);
+      this.emit('session-wiping'); // Notify UI to show spinner/cleaning state
       
       this.clearInactivityTimer();
       
       const oldId = this.activeSessionId;
       const oldPath = this.sessionPath;
 
-      // Update State
+      // Update State (Memory)
       this.activeSessionId = null;
       this.sessionPath = null;
       this.importedFiles = [];
       this.totalSize = 0;
       this.startTime = null;
 
-      // Persist 'ENDED'
+      // EXECUTE SECURE WIPE
+      const wipeSuccess = await secureWipeSession(oldPath);
+      
+      const status = wipeSuccess ? 'ENDED' : 'WIPE_FAILED';
+
+      // Persist Status
       this.persistence.saveState({
           lastSessionId: oldId,
           path: oldPath,
-          status: 'ENDED',
+          status: status,
           timestamp: Date.now()
       });
 
@@ -126,7 +136,6 @@ export class SessionManager extends EventEmitter {
 
   public notifyActivity() {
       if (this.activeSessionId) {
-          // Reset timer
           this.startInactivityTimer();
       }
   }

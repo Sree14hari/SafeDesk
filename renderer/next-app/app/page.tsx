@@ -23,7 +23,10 @@ export default function Home() {
 
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.onSessionStatus((_event, value) => setStatus(value));
+      window.electronAPI.onSessionStatus((_event, value) => {
+          // If Status update is about Destruction, make it prominent (handled by UI rendering below if needed)
+          setStatus(value);
+      });
 
       window.electronAPI.onSessionCreated((_event, id) => {
         setStatus(`Session Active`);
@@ -35,7 +38,7 @@ export default function Home() {
           setSessionInfo({ id: null, startTime: null, totalSize: 0, fileCount: 0 });
           setFiles([]);
           setStatus('No Active Session');
-          setEndReason(reason);
+          setEndReason(`Session Ended (${reason}). Data has been securely overwritten and destroyed.`);
       });
 
       window.electronAPI.onFilesUpdated((_event, newFiles) => {
@@ -58,7 +61,7 @@ export default function Home() {
   };
 
   const handleEndSession = () => {
-      if (window.electronAPI && confirm("Are you sure you want to end this secure session?")) {
+      if (window.electronAPI && confirm("Are you sure? This will IRRECOVERABLY DESTROY all session data.")) {
         window.electronAPI.endSession();
       }
   };
@@ -113,8 +116,12 @@ export default function Home() {
         </div>
 
         {endReason && !sessionInfo.id && (
-            <div style={{ marginBottom: '20px', padding: '15px', background: '#ffebee', color: '#c62828', borderRadius: '8px', border: '1px solid #ef9a9a' }}>
-                Session Ended: <strong>{endReason}</strong>
+            <div style={{ marginBottom: '20px', padding: '20px', background: '#ffebee', color: '#b71c1c', borderRadius: '8px', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontSize: '24px' }}>🗑️</span>
+                <div>
+                    <h3 style={{ margin: '0 0 5px 0' }}>Session Closed</h3>
+                    <p style={{ margin: 0 }}>{endReason}</p>
+                </div>
             </div>
         )}
 
