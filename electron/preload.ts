@@ -12,4 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   onFilesUpdated: (callback: (event: any, files: Array<{name: string, size: number}>) => void) =>
     ipcRenderer.on('files:updated', callback),
+    
+  onSessionInfoUpdated: (callback: (event: any, info: any) => void) =>
+    ipcRenderer.on('session:info-updated', callback),
 });

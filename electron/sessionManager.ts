@@ -6,37 +6,58 @@ const BASE_DIR = 'C:\\SafeDesk\\sessions';
 export interface FileMetadata {
   name: string;
   size: number;
-  // storedName? could be added if we sanitize filenames to disk
+}
+
+export interface SessionInfo {
+    id: string | null;
+    startTime: number | null;
+    totalSize: number;
+    fileCount: number;
 }
 
 export class SessionManager {
   private activeSessionId: string | null = null;
   private sessionPath: string | null = null;
   private importedFiles: FileMetadata[] = [];
+  
+  // Metadata
+  private startTime: number | null = null;
+  private totalSize: number = 0;
 
   constructor() {
-    // Ensure base directory exists
-    // In a real app, strict permissions should be applied here.
     fs.ensureDirSync(BASE_DIR);
   }
 
   public async startSession(): Promise<string> {
-    // Generate simple unique ID: timestamp + random suffix
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000);
     this.activeSessionId = `session_${timestamp}_${random}`;
     
     this.sessionPath = path.join(BASE_DIR, this.activeSessionId);
+    this.startTime = timestamp;
+    this.totalSize = 0;
+    this.importedFiles = [];
     
     try {
       await fs.ensureDir(this.sessionPath);
       console.log(`[SessionManager] Created workspace: ${this.sessionPath}`);
-      this.importedFiles = [];
       return this.activeSessionId;
     } catch (error) {
       console.error('Failed to create session directory:', error);
       throw error;
     }
+  }
+
+  private async resolveUniqueFilename(targetDir: string, fileName: string): Promise<string> {
+      let finalName = fileName;
+      let counter = 1;
+      const parsed = path.parse(fileName);
+      
+      while (await fs.pathExists(path.join(targetDir, finalName))) {
+          finalName = `${parsed.name} (${counter})${parsed.ext}`;
+          counter++;
+      }
+      return finalName;
   }
 
   public async importFiles(sourcePaths: string[]): Promise<FileMetadata[]> {
@@ -49,35 +70,36 @@ export class SessionManager {
     for (const src of sourcePaths) {
       try {
         const stats = await fs.stat(src);
-        const fileName = path.basename(src);
-        const dest = path.join(this.sessionPath, fileName);
-
-        // Prevent overwriting? For now, we overwrite.
-        // SECURITY: We should sanitize fileName to avoid ../ traversal if it came from untrusted source.
-        // But sourcePaths come from dialog.showOpenDialog, which is relatively safe locally.
+        const originalName = path.basename(src);
+        
+        // Resolve Unique Name
+        const safeName = await this.resolveUniqueFilename(this.sessionPath, originalName);
+        const dest = path.join(this.sessionPath, safeName);
         
         await fs.copy(src, dest);
         
         const metadata: FileMetadata = {
-            name: fileName,
+            name: safeName,
             size: stats.size
         };
         newFiles.push(metadata);
         this.importedFiles.push(metadata);
+        this.totalSize += stats.size;
 
-        console.log(`[SessionManager] Imported: ${fileName}`);
+        console.log(`[SessionManager] Imported: ${safeName} (${stats.size} bytes)`);
       } catch (error) {
         console.error(`[SessionManager] Failed to import ${src}:`, error);
-        // Continue with other files or throw?
       }
     }
 
     return newFiles;
   }
 
-  public getSessionInfo() {
+  public getSessionInfo(): SessionInfo {
     return {
       id: this.activeSessionId,
+      startTime: this.startTime,
+      totalSize: this.totalSize,
       fileCount: this.importedFiles.length
     };
   }

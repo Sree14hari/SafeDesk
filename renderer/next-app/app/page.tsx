@@ -1,7 +1,14 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// Locally defining interface if not picked up globally in dev immediately
+// Re-defining locally for clarity in this file context, though global.d.ts handles it.
+interface SessionInfo {
+    id: string | null;
+    startTime: number | null;
+    totalSize: number;
+    fileCount: number;
+}
+
 interface FileMetadata {
   name: string;
   size: number;
@@ -9,27 +16,32 @@ interface FileMetadata {
 
 export default function Home() {
   const [status, setStatus] = useState('Ready');
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
+      id: null, startTime: null, totalSize: 0, fileCount: 0
+  });
   const [files, setFiles] = useState<FileMetadata[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     if (window.electronAPI) {
-      // Listen for status updates
       window.electronAPI.onSessionStatus((_event, value) => {
         setStatus(value);
+        setIsImporting(false); // Reset loading state on status update
       });
 
-      // Listen for session creation
       window.electronAPI.onSessionCreated((_event, id) => {
-        setSessionId(id);
-        setStatus(`Session Active: ${id}`);
-        setFiles([]); // Reset files on new session
+        setStatus(`Session Active`);
+        setFiles([]); 
       });
 
-      // Listen for file updates
       window.electronAPI.onFilesUpdated((_event, newFiles) => {
-         // Append new files to existing list
          setFiles(prev => [...prev, ...newFiles]);
+         setStatus(`Imported ${newFiles.length} file(s)`);
+         setIsImporting(false);
+      });
+      
+      window.electronAPI.onSessionInfoUpdated((_event, info) => {
+          setSessionInfo(info);
       });
     }
   }, []);
@@ -37,93 +49,156 @@ export default function Home() {
   const handleStartSession = () => {
     if (window.electronAPI) {
       window.electronAPI.startSession();
-      setStatus('Requesting Session Start...');
+      setStatus('Initializing Secure Workspace...');
     }
   };
 
   const handleImport = () => {
-    if (!sessionId) {
-      alert('Please start a session first.');
-      return;
-    }
+    if (!sessionInfo.id) return;
+    setIsImporting(true);
     window.electronAPI.triggerFileImport();
+  };
+  
+  const formatBytes = (bytes: number) => {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatTime = (ts: number | null) => {
+      if (!ts) return '-';
+      return new Date(ts).toLocaleTimeString();
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-      <header style={{ marginBottom: '30px', borderBottom: '1px solid #eaeaea', paddingBottom: '20px' }}>
-        <h1 style={{ margin: '0 0 10px 0' }}>Secure Session Workspace</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-             <p style={{ margin: 0, color: '#666' }}>Status: <strong>{status}</strong></p> 
-             {sessionId && <span style={{ padding: '4px 8px', background: '#dff6dd', color: '#1f5f19', borderRadius: '4px', fontSize: '14px' }}>Active</span>}
+    <div style={{ fontFamily: 'Inter, sans-serif', height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#fafafa' }}>
+      
+      {/* Header */}
+      <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #eaeaea', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '24px', height: '24px', background: sessionInfo.id ? '#28a745' : '#ccc', borderRadius: '50%' }}></div>
+            <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>SecureEngine</h1>
+        </div>
+        <div style={{ fontSize: '14px', color: '#666' }}>
+            Status: <strong>{status}</strong>
         </div>
       </header>
 
-      <main>
-        {!sessionId ? (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <button 
-              onClick={handleStartSession}
-              style={{
-                padding: '12px 24px',
-                fontSize: '18px',
-                cursor: 'pointer',
-                backgroundColor: '#0070f3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                boxShadow: '0 4px 14px 0 rgba(0,118,255,0.39)'
-              }}
-            >
-              Start Secure Session
-            </button>
-            <p style={{ marginTop: '15px', color: '#666' }}>Click to initialize an isolated workspace.</p>
+      {/* Main Content */}
+      <main style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+        
+        {/* Trust Banner */}
+        <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #b9e6fb', padding: '12px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', color: '#006494' }}>
+            <span style={{ fontSize: '18px' }}>🔐</span>
+            <span style={{ fontSize: '14px', fontWeight: 500 }}>Safe Workspace: Files imported here are isolated in a temporary session and never saved to your standard folders.</span>
+        </div>
+
+        {!sessionInfo.id ? (
+          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
+            <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', maxWidth: '400px' }}>
+                <h2 style={{ marginTop: 0 }}>Start a New Session</h2>
+                <p style={{ color: '#666', marginBottom: '30px' }}>Create a secure, isolated environment for handling sensitive documents.</p>
+                <button 
+                  onClick={handleStartSession}
+                  style={{
+                    padding: '14px 28px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    backgroundColor: '#111',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    width: '100%',
+                    transition: 'opacity 0.2s'
+                  }}
+                >
+                  Start Secure Session
+                </button>
+            </div>
           </div>
         ) : (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0 }}>Session Files</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+            
+            {/* Metadata Dashboard */}
+            <div style={{ display: 'flex', gap: '20px' }}>
+                <DashboardCard label="Session ID" value={sessionInfo.id.split('_')[2] || '...'} sub={sessionInfo.id} />
+                <DashboardCard label="Started At" value={formatTime(sessionInfo.startTime)} />
+                <DashboardCard label="Files" value={sessionInfo.fileCount.toString()} />
+                <DashboardCard label="Total Storage" value={formatBytes(sessionInfo.totalSize)} />
+            </div>
+
+            {/* Action Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px' }}>Session Files</h2>
               <button 
                 onClick={handleImport}
+                disabled={isImporting}
                 style={{
-                  padding: '10px 16px',
+                  padding: '10px 20px',
                   fontSize: '14px',
-                  cursor: 'pointer',
-                  backgroundColor: '#fff',
-                  color: '#0070f3',
-                  border: '1px solid #0070f3',
-                  borderRadius: '5px'
+                  fontWeight: 500,
+                  cursor: isImporting ? 'not-allowed' : 'pointer',
+                  backgroundColor: isImporting ? '#f0f0f0' : '#0070f3',
+                  color: isImporting ? '#999' : 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
               >
-                + Import Files (Secure)
+                {isImporting ? 'Importing...' : '+ Import Files'}
               </button>
             </div>
 
-            <div style={{ background: '#f9f9f9', borderRadius: '8px', border: '1px solid #eaeaea', minHeight: '200px' }}>
-              {files.length === 0 ? (
-                <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-                  No files in this session yet. Import files to begin.
-                </div>
-              ) : (
-                 <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                   {files.map((file, idx) => (
-                     <li key={idx} style={{ 
-                       padding: '12px 20px', 
-                       borderBottom: '1px solid #eaeaea', 
-                       display: 'flex', 
-                       justifyContent: 'space-between',
-                       alignItems: 'center'
-                     }}>
-                       <span style={{ fontWeight: 500 }}>{file.name}</span>
-                       <span style={{ color: '#666', fontSize: '14px' }}>{(file.size / 1024).toFixed(1)} KB</span>
-                     </li>
-                   ))}
-                 </ul>
-              )}
+            {/* File List */}
+            <div style={{ flex: 1, background: '#fff', borderRadius: '8px', border: '1px solid #eaeaea', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', fontSize: '12px', fontWeight: 600, color: '#666', display: 'flex' }}>
+                  <div style={{ flex: 1 }}>NAME</div>
+                  <div style={{ width: '100px', textAlign: 'right' }}>SIZE</div>
+              </div>
+              
+              <div style={{ overflowY: 'auto', flex: 1 }}>
+                  {files.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+                      <p>No files imported yet.</p>
+                      <p style={{ fontSize: '13px' }}>Click "Import Files" to copy documents safely into this workspace.</p>
+                    </div>
+                  ) : (
+                     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                       {files.map((file, idx) => (
+                         <li key={idx} style={{ 
+                           padding: '12px 20px', 
+                           borderBottom: '1px solid #f5f5f5', 
+                           display: 'flex', 
+                           justifyContent: 'space-between',
+                           alignItems: 'center',
+                           fontSize: '14px'
+                         }}>
+                           <span style={{ fontWeight: 500, color: '#333' }}>{file.name}</span>
+                           <span style={{ color: '#666', fontFamily: 'monospace' }}>{formatBytes(file.size)}</span>
+                         </li>
+                       ))}
+                     </ul>
+                  )}
+              </div>
             </div>
           </div>
         )}
       </main>
     </div>
   );
+}
+
+function DashboardCard({ label, value, sub }: { label: string, value: string, sub?: string }) {
+    return (
+        <div style={{ flex: 1, background: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #eaeaea', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
+            <div style={{ fontSize: '12px', textTransform: 'uppercase', color: '#888', fontWeight: 600, marginBottom: '6px' }}>{label}</div>
+            <div style={{ fontSize: '20px', fontWeight: 600, color: '#111' }}>{value}</div>
+            {sub && <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
+        </div>
+    );
 }

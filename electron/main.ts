@@ -7,8 +7,8 @@ const sessionManager = new SessionManager();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 900,
+    height: 700,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -30,25 +30,35 @@ function createWindow() {
   });
 }
 
+const sendSessionInfo = (target: any) => {
+    const info = sessionManager.getSessionInfo();
+    target.send('session:info-updated', info);
+};
+
 app.whenReady().then(() => {
   createWindow();
 
-  // IPC: Start Session
   ipcMain.on('session:start', async (event) => {
     try {
       const sessionId = await sessionManager.startSession();
       console.log(`Main Process: Session ${sessionId} started`);
       event.sender.send('session:created', sessionId);
-      event.sender.send('session:status', `Active Session: ${sessionId}`);
+      sendSessionInfo(event.sender);
     } catch (err) {
       console.error('Error starting session:', err);
       event.sender.send('session:status', 'Error starting session');
     }
   });
 
-  // IPC: Open File Dialog & Import
   ipcMain.on('files:trigger-import', async (event) => {
     if (!mainWindow) return;
+
+    // Reject if no session (extra safety)
+    const { id } = sessionManager.getSessionInfo();
+    if (!id) {
+        event.sender.send('session:status', 'Error: No active session');
+        return;
+    }
 
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Select Files for Secure Session',
@@ -59,11 +69,10 @@ app.whenReady().then(() => {
       try {
         console.log('Importing files:', result.filePaths);
         const importedFiles = await sessionManager.importFiles(result.filePaths);
-        // Send back safe metadata
         event.sender.send('files:updated', importedFiles);
+        sendSessionInfo(event.sender); // Update size/count
       } catch (error: any) {
         console.error('Import Error:', error);
-         // error can be unknown type
          const msg = error instanceof Error ? error.message : String(error);
         event.sender.send('session:status', `Import failed: ${msg}`);
       }
