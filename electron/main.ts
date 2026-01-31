@@ -58,6 +58,18 @@ app.whenReady().then(async () => {
       }
   });
 
+  sessionManager.on('files-updated', (files: any[]) => {
+      if (mainWindow) {
+          mainWindow.webContents.send('files:updated', files);
+      }
+  });
+
+  sessionManager.on('session-info-updated', (info: any) => {
+      if (mainWindow) {
+          mainWindow.webContents.send('session:info-updated', info);
+      }
+  });
+
   ipcMain.handle('system:set-mode', async (event, mode: 'CUSTOMER' | 'OWNER') => {
       // In a real app, this would require authentication payload.
       // For now, we allow switching if IDLE (or valid).
