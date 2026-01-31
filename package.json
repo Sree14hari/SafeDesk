@@ -14,6 +14,8 @@
     "start": "electron ."
   },
   "dependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "fs-extra": "^11.3.3",
     "next": "^16.1.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

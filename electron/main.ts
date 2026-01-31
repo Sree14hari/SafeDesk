@@ -1,7 +1,9 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
+import { SessionManager } from './sessionManager';
 
 let mainWindow: BrowserWindow | null = null;
+const sessionManager = new SessionManager();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -15,11 +17,8 @@ function createWindow() {
     },
   });
 
-  // In production, load the static files. In dev, load localhost.
   const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
   if (isDev) {
-    // Wait for Next.js to start. In a real scenario, use wait-on or similar.
-    // For now, we assume concurrent running.
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
   } else {
@@ -34,10 +33,41 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  ipcMain.on('session:start', (event) => {
-    console.log('Main Process: Session started');
-    // Reply to renderer
-    event.sender.send('session:status', 'Session Active (Secure)');
+  // IPC: Start Session
+  ipcMain.on('session:start', async (event) => {
+    try {
+      const sessionId = await sessionManager.startSession();
+      console.log(`Main Process: Session ${sessionId} started`);
+      event.sender.send('session:created', sessionId);
+      event.sender.send('session:status', `Active Session: ${sessionId}`);
+    } catch (err) {
+      console.error('Error starting session:', err);
+      event.sender.send('session:status', 'Error starting session');
+    }
+  });
+
+  // IPC: Open File Dialog & Import
+  ipcMain.on('files:trigger-import', async (event) => {
+    if (!mainWindow) return;
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Files for Secure Session',
+      properties: ['openFile', 'multiSelections']
+    });
+
+    if (!result.canceled && result.filePaths.length > 0) {
+      try {
+        console.log('Importing files:', result.filePaths);
+        const importedFiles = await sessionManager.importFiles(result.filePaths);
+        // Send back safe metadata
+        event.sender.send('files:updated', importedFiles);
+      } catch (error: any) {
+        console.error('Import Error:', error);
+         // error can be unknown type
+         const msg = error instanceof Error ? error.message : String(error);
+        event.sender.send('session:status', `Import failed: ${msg}`);
+      }
+    }
   });
 
   app.on('activate', () => {

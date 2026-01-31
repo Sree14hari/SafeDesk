@@ -29,7 +29,8 @@
     "**/*.ts",
     "**/*.tsx",
     "../../dist/renderer/types/**/*.ts",
-    "../../dist/renderer/dev/types/**/*.ts"
+    "../../dist/renderer/dev/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"
