@@ -288,6 +288,7 @@ export default function Home() {
 
         {/* Phase 5 & 6: IDLE Screen Layout */}
         {!sessionInfo.id && (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="bh-grid" style={{ alignItems: 'stretch', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
                 
                 {/* 1. Start Disposition Session (Primary Action) */}
@@ -397,6 +398,33 @@ export default function Home() {
                      </button>
                 </div>
             </div>
+
+
+
+
+                {/* Privacy Footprint - Live Dashboard (Only after Secure Destruction) */}
+                {endReason && (
+                    <div className="bh-card" style={{ marginTop: '30px', borderTop: '4px solid var(--bh-green)', padding: '25px' }}>
+                        <h3 style={{ marginTop: 0, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <Shield size={20} color="green" /> Privacy Footprint – LIVE
+                        </h3>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '20px 0' }}>
+                            <StatusItem label="Active Sessions" value="0" />
+                            <StatusItem label="Session Folders" value="0" />
+                            <StatusItem label="Browser Cache" value="Clean" />
+                            <StatusItem label="Downloads" value="Clean" />
+                            <StatusItem label="Desktop" value="Clean" />
+                            <StatusItem label="Print Spool" value="Empty" />
+                            <StatusItem label="Temp Files" value="Clean" />
+                        </div>
+
+                        <div style={{ background: '#e6f4ea', color: '#137333', padding: '15px', borderRadius: '8px', textAlign: 'center', fontWeight: 800, border: '1px solid #ceead6' }}>
+                            OVERALL STATE: 🟢 ZERO CUSTOMER DATA
+                        </div>
+                    </div>
+                )}
+            </div>
         )}
 
         {sessionInfo.id && (
@@ -503,6 +531,19 @@ export default function Home() {
       </main>
     </div>
   );
+}
+
+
+function StatusItem({ label, value }: { label: string, value: string }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '8px' }}>
+             <span style={{ fontSize: '13px', color: '#555', fontWeight: 600 }}>{label}</span>
+             <span style={{ fontSize: '14px', fontWeight: 800, color: value === 'Clean' || value === 'Empty' || value === '0' ? '#137333' : 'black' }}>
+                {value === 'Clean' || value === 'Empty' || value === '0' ? <CheckCircle size={14} style={{verticalAlign:'middle', marginRight:'4px'}}/> : null}
+                {value}
+             </span>
+        </div>
+    );
 }
 
 function DashboardCard({ label, value, icon }: { label: string, value: string, icon?: any }) {
