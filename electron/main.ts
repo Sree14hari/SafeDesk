@@ -125,6 +125,16 @@ app.whenReady().then(async () => {
           console.log(`[Main] Requesting print for: ${filePath}`);
           
           if (!mainWindow) throw new Error("Main window not available");
+
+          // Mobile Approval Check
+          event.sender.send('session:status', 'Requesting Mobile Approval (Check Phone)...');
+          const allowed = await sessionManager.verifyPrintPermission(fileName);
+          
+          if (!allowed) {
+               console.log('[Main] Print request denied by user source.');
+               event.sender.send('session:status', '⛔ Print Denied by Mobile User.');
+               return; // Graceful exit, no error thrown
+          }
           
           await sessionManager.getPrintManager().printFile(filePath, mainWindow);
           event.sender.send('session:status', `Printed: ${fileName}`);

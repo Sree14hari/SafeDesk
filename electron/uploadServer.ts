@@ -12,14 +12,23 @@ export class UploadServer extends EventEmitter {
     private activeToken: string | null = null;
     private sessionPath: string | null = null;
     private port: number | null = null;
+    
+    // Approval State
+    private uploadUsed: boolean = false;
+    private pendingApproval: { 
+        resolve: (allowed: boolean) => void, 
+        fileName: string 
+    } | null = null;
 
     constructor() {
         super();
         this.app = express();
+        this.app.use(express.json()); // Enable JSON body parsing
         this.setupRoutes();
     }
 
     private setupRoutes() {
+        // 1. Mobile Client Page
         this.app.get('/upload', (req, res) => {
             const token = req.query.token as string;
 
@@ -27,168 +36,10 @@ export class UploadServer extends EventEmitter {
                 return res.status(403).send('Invalid or expired Secure Upload Token.');
             }
 
-            // Mobile-Friendly Secure Upload UI
-            res.send(`
-                <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                    <title>Secure Upload</title>
-                    <style>
-                        :root {
-                            --primary: #000000;
-                            --danger: #cf1322;
-                            --bg: #f5f5f5;
-                            --card-bg: #ffffff;
-                            --text: #333333;
-                        }
-                        body {
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                            background-color: var(--bg);
-                            margin: 0;
-                            padding: 20px;
-                            height: 100vh;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            box-sizing: border-box;
-                        }
-                        .container {
-                            background: var(--card-bg);
-                            width: 100%;
-                            max-width: 400px;
-                            padding: 30px;
-                            border-radius: 16px;
-                            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-                            text-align: center;
-                        }
-                        .brand {
-                            font-weight: 800;
-                            font-size: 20px;
-                            margin-bottom: 24px;
-                            color: var(--primary);
-                            text-transform: uppercase;
-                            letter-spacing: -0.5px;
-                        }
-                        .upload-box {
-                            border: 2px dashed #ddd;
-                            border-radius: 12px;
-                            padding: 30px 20px;
-                            margin-bottom: 24px;
-                            cursor: pointer;
-                            transition: all 0.2s;
-                            position: relative;
-                        }
-                        .upload-box:hover, .upload-box.drag-over {
-                            border-color: var(--primary);
-                            background-color: #fafafa;
-                        }
-                        input[type="file"] {
-                            position: absolute;
-                            top: 0; left: 0; width: 100%; height: 100%;
-                            opacity: 0;
-                            cursor: pointer;
-                        }
-                        .upload-icon {
-                            font-size: 32px;
-                            margin-bottom: 10px;
-                            display: block;
-                        }
-                        .upload-text {
-                            font-size: 14px;
-                            color: #666;
-                            font-weight: 500;
-                        }
-                        button {
-                            background: var(--primary);
-                            color: white;
-                            border: none;
-                            width: 100%;
-                            padding: 16px;
-                            font-size: 16px;
-                            font-weight: 600;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                            transition: transform 0.1s;
-                        }
-                        button:active {
-                            transform: scale(0.98);
-                        }
-                        .badge {
-                            display: inline-flex;
-                            align-items: center;
-                            gap: 6px;
-                            background: #e6f7ff;
-                            color: #0050b3;
-                            padding: 6px 12px;
-                            border-radius: 20px;
-                            font-size: 12px;
-                            font-weight: 700;
-                            margin-bottom: 24px;
-                        }
-                        .secure-note {
-                            font-size: 12px;
-                            color: #888;
-                            margin-top: 24px;
-                            line-height: 1.5;
-                            border-top: 1px solid #eee;
-                            padding-top: 16px;
-                        }
-                        .file-name {
-                            margin-top: 10px;
-                            font-weight: 600;
-                            color: var(--primary);
-                            display: none;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="brand">SecureEngine</div>
-                        
-                        <div class="badge">
-                            <span style="font-size: 14px">🔒</span> End-to-End Local Encryption
-                        </div>
-
-                        <form action="/upload?token=${token}" method="post" enctype="multipart/form-data">
-                            <div class="upload-box" id="dropArea">
-                                <input type="file" name="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.docx" required>
-                                <span class="upload-icon">📄</span>
-                                <div class="upload-text">Tap to select a document</div>
-                                <div class="file-name" id="fileName"></div>
-                            </div>
-
-                            <button type="submit">Secure Upload</button>
-                        </form>
-
-                        <p class="secure-note">
-                            This link is single-use only.<br>
-                            Your file will be transferred directly to the terminal and 
-                            <span style="color: var(--danger); font-weight: 700;">permanently destroyed</span> 
-                            after this session.
-                        </p>
-                    </div>
-
-                    <script>
-                        const input = document.getElementById('fileInput');
-                        const fileNameDisplay = document.getElementById('fileName');
-                        const uploadText = document.querySelector('.upload-text');
-
-                        input.addEventListener('change', (e) => {
-                            if (input.files.length > 0) {
-                                fileNameDisplay.textContent = input.files[0].name;
-                                fileNameDisplay.style.display = 'block';
-                                uploadText.style.display = 'none';
-                            }
-                        });
-                    </script>
-                </body>
-                </html>
-            `);
+            res.send(this.getMobilePageHtml(token));
         });
 
+        // 2. File Upload Handler
         this.app.post('/upload', (req, res) => {
             const token = req.query.token as string;
 
@@ -196,12 +47,15 @@ export class UploadServer extends EventEmitter {
                 return res.status(403).send('Session invalid or expired.');
             }
 
+            if (this.uploadUsed) {
+                return res.status(403).send('One-time upload limit reached.');
+            }
+
             const form = formidable({
-                uploadDir: this.sessionPath, // Save directly to session path
+                uploadDir: this.sessionPath, 
                 keepExtensions: true,
-                maxFileSize: 50 * 1024 * 1024, // 50MB
+                maxFileSize: 50 * 1024 * 1024,
                 filename: (name: string, ext: string, part: any, form: any) => {
-                    // Sanitize and ensure secure naming
                     const safeName = path.basename(part.originalFilename || 'upload').replace(/[^a-zA-Z0-9._-]/g, '_');
                     return `QR_${Date.now()}_${safeName}`; 
                 }
@@ -213,31 +67,58 @@ export class UploadServer extends EventEmitter {
                     return res.status(500).send('Upload failed.');
                 }
 
-                // File is already saved to sessionPath by formidable
-                // Notify via event
                 const uploadedFileLine = Array.isArray(files.file) ? files.file[0] : files.file;
-                // 'files.file' might be undefined if field name differs, but form uses 'file'
                 
                 if (uploadedFileLine) {
+                    this.uploadUsed = true; // Mark used
                     this.emit('file-uploaded', uploadedFileLine.filepath || uploadedFileLine.newFilename);
                     
-                    // Invalidate token immediately
-                    this.activeToken = null;
-
-                    res.send(`
-                        <!DOCTYPE html>
-                        <html>
-                        <body style="font-family:sans-serif;text-align:center;padding:40px;">
-                            <h1 style="color:green;">Upload Successful</h1>
-                            <p>You may now print this file at the terminal.</p>
-                            <script>window.close();</script>
-                        </body>
-                        </html>
-                    `);
+                    // Return same page but in "Waiting" mode
+                    res.send(this.getMobilePageHtml(token, true));
                 } else {
                     res.status(400).send('No file received.');
                 }
             });
+        });
+
+        // 3. Polling Endpoint for Print Requests
+        this.app.get('/check-print', (req, res) => {
+            const token = req.query.token as string;
+            if (!token || token !== this.activeToken) return res.status(403).json({ error: 'Auth failed' });
+
+            if (this.pendingApproval) {
+                res.json({ pending: true, fileName: this.pendingApproval.fileName });
+            } else {
+                res.json({ pending: false });
+            }
+        });
+
+        // 4. Response Endpoint for Approval
+        this.app.post('/respond-print', (req, res) => {
+            const token = req.query.token as string;
+            const { decision } = req.body; // 'ALLOW' | 'DENY'
+            
+            if (!token || token !== this.activeToken) return res.status(403).json({ error: 'Auth failed' });
+            
+            if (this.pendingApproval) {
+                this.pendingApproval.resolve(decision === 'ALLOW');
+                this.pendingApproval = null;
+                res.json({ success: true });
+            } else {
+                res.json({ success: false, error: 'No pending request' });
+            }
+        });
+    }
+
+    public async requestApproval(fileName: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            if (this.pendingApproval) {
+                // Determine logic for concurrent requests? Reject old?
+                // For simplicity, reject old one.
+                this.pendingApproval.resolve(false); 
+            }
+            this.pendingApproval = { resolve, fileName };
+            console.log(`[UploadServer] Pending approval for ${fileName}`);
         });
     }
 
@@ -247,6 +128,8 @@ export class UploadServer extends EventEmitter {
 
             this.sessionPath = sessionPath;
             this.activeToken = token;
+            this.uploadUsed = false;
+            this.pendingApproval = null;
 
             // Start on random port
             this.server = this.app.listen(0, () => {
@@ -271,7 +154,127 @@ export class UploadServer extends EventEmitter {
             this.port = null;
             this.activeToken = null;
             this.sessionPath = null;
+            this.uploadUsed = false;
+            if (this.pendingApproval) {
+                this.pendingApproval.resolve(false); // Reject explicit pending
+                this.pendingApproval = null;
+            }
             console.log('[UploadServer] Stopped.');
         }
+    }
+
+    private getMobilePageHtml(token: string, isUploaded: boolean = false) {
+        return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>Secure Link</title>
+            <style>
+                :root { --primary: #000; --danger: #cf1322; --success: #389e0d; --bg: #f5f5f5; }
+                body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; padding: 20px; box-sizing: border-box;}
+                .card { background: white; padding: 30px; border-radius: 16px; width: 100%; max-width: 400px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+                .hidden { display: none !important; }
+                .btn { display: block; width: 100%; padding: 15px; border-radius: 8px; font-weight: 700; border: none; cursor: pointer; font-size: 16px; margin-top: 10px; }
+                .btn-primary { background: var(--primary); color: white; }
+                .btn-success { background: var(--success); color: white; }
+                .btn-danger { background: var(--danger); color: white; }
+                .status-icon { font-size: 40px; margin-bottom: 20px; display: block; }
+                
+                #approvalOverlay {
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.85); color: white;
+                    display: flex; flex-direction: column; 
+                    align-items: center; justify-content: center;
+                    padding: 30px; z-index: 100;
+                }
+                .blink { animation: blink 1.5s infinite; }
+                @keyframes blink { 50% { opacity: 0.5; } }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div style="font-weight: 900; font-size: 20px; margin-bottom: 20px; text-transform: uppercase;">SecureEngine</div>
+                
+                <!-- UPLOAD STATE -->
+                <div id="uploadState" class="${isUploaded ? 'hidden' : ''}">
+                    <form action="/upload?token=${token}" method="post" enctype="multipart/form-data">
+                        <div style="border: 2px dashed #ddd; padding: 40px 20px; border-radius: 12px; margin-bottom: 20px; cursor: pointer;" onclick="document.getElementById('f').click()">
+                            <span style="font-size:30px">📄</span><br><br>
+                            <span id="fName">Tap to Select File</span>
+                            <input type="file" id="f" name="file" style="display:none" onchange="document.getElementById('fName').textContent = this.files[0].name">
+                        </div>
+                        <button class="btn btn-primary" type="submit">SECURE UPLOAD</button>
+                    </form>
+                </div>
+
+                <!-- WAITING STATE -->
+                <div id="waitState" class="${!isUploaded ? 'hidden' : ''}">
+                    <span class="status-icon">✅</span>
+                    <h2 style="margin: 0 0 10px 0;">Connected</h2>
+                    <p style="color: #666; font-size: 14px;">File uploaded successfully.</p>
+                    <div style="background: #fffbe6; border: 1px solid #ffe58f; padding: 15px; border-radius: 8px; margin-top: 20px;">
+                        <div class="blink" style="font-weight: 700; color: #d46b08; margin-bottom: 5px;">⚠️ DO NOT CLOSE</div>
+                        <div style="font-size: 12px; color: #888;">Please keep this screen open.<br>You will need to authorize printing request from the PC.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- APPROVAL OVERLAY -->
+            <div id="approvalOverlay" class="hidden">
+                <div style="text-align: center;">
+                    <span style="font-size: 50px;">🖨️</span>
+                    <h2 style="margin: 20px 0;">Print Request</h2>
+                    <p>The PC is requesting to print:</p>
+                    <div id="reqFileName" style="font-family: monospace; background: #333; padding: 10px; border-radius: 6px; margin-bottom: 30px; word-break: break-all;">doc.pdf</div>
+                    
+                    <button class="btn btn-success" onclick="reply('ALLOW')">ALLOW PRINT</button>
+                    <button class="btn btn-danger" onclick="reply('DENY')">DENY</button>
+                </div>
+            </div>
+
+            <script>
+                const token = "${token}";
+                
+                // Polling Loop
+                if (!document.getElementById('waitState').classList.contains('hidden')) {
+                    setInterval(checkStatus, 1000);
+                }
+
+                async function checkStatus() {
+                    try {
+                        const res = await fetch(\`/check-print?token=\${token}\`);
+                        const data = await res.json();
+                        
+                        const overlay = document.getElementById('approvalOverlay');
+                        if (data.pending) {
+                            document.getElementById('reqFileName').textContent = data.fileName;
+                            overlay.classList.remove('hidden');
+                             // Vibrate if supported
+                             if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                        } else {
+                            overlay.classList.add('hidden');
+                        }
+                    } catch (e) { console.error(e); }
+                }
+
+                async function reply(choice) {
+                    try {
+                        document.getElementById('approvalOverlay').innerHTML = 'Sending...';
+                        await fetch(\`/respond-print?token=\${token}\`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ decision: choice })
+                        });
+                        location.reload(); // Reset UI
+                    } catch (e) {
+                        alert('Connection Failed');
+                    }
+                }
+            </script>
+        </body>
+        </html>
+        `;
     }
 }

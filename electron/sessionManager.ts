@@ -296,6 +296,15 @@ export class SessionManager extends EventEmitter {
           this.startInactivityTimer();
       }
   }
+
+  public async verifyPrintPermission(fileName: string): Promise<boolean> {
+      const file = this.importedFiles.find(f => f.name === fileName);
+      if (file && file.source === 'UPLOAD' && this.uploadUrl) {
+           console.log(`[SessionManager] File ${fileName} requires mobile approval.`);
+           return await this.uploadServer.requestApproval(fileName);
+      }
+      return true;
+  }
   
   public getPrintManager(): PrintManager { return this.printManager; }
   public getViewerManager(): ViewerManager { return this.viewerManager; }
