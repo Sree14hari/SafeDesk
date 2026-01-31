@@ -4,31 +4,16 @@ import * as path from 'path';
 export class PrintManager {
     private activeWindows: Map<number, BrowserWindow> = new Map();
 
-    public async getSafePrinters(targetWindow: BrowserWindow): Promise<Electron.PrinterInfo[]> {
-        const printers = await targetWindow.webContents.getPrintersAsync();
-        return printers.filter(p => {
-             const lower = p.name.toLowerCase();
-             // Block virtual/PDF printers
-             return !lower.includes('pdf') && 
-                    !lower.includes('xps') && 
-                    !lower.includes('onenote') && 
-                    !lower.includes('fax') && 
-                    !lower.includes('writer') &&
-                    !lower.includes('virtual');
-        });
-    }
-
     /**
      * Prints a file safely by loading it into a modal window.
      * We enable plugins to support PDF viewing.
      * 
      * @param filePath Absolute path to the file.
      * @param parentWindow The main application window (for modality).
-     * @param deviceName Optional name of the printer to target directly (Silent mode).
      */
-    public async printFile(filePath: string, parentWindow: BrowserWindow, deviceName?: string): Promise<void> {
+    public async printFile(filePath: string, parentWindow: BrowserWindow): Promise<void> {
         return new Promise((resolve, reject) => {
-            console.log(`[PrintManager] Starting print job for: ${filePath} on device: ${deviceName || 'Default (System Dialog)'}`);
+            console.log(`[PrintManager] Starting print job for: ${filePath}`);
 
             let printWindow: BrowserWindow | null = new BrowserWindow({
                 parent: parentWindow,
@@ -74,49 +59,16 @@ export class PrintManager {
             printWindow.webContents.on('did-finish-load', () => {
                 if (!printWindow) return;
                 
-                console.log(`[PrintManager] File loaded. Proceeding to print...`);
-                // No show() needed if silent, but good for debugging/loading check.
-                // If silent, user won't see preview, which is actually BETTER for security/speed here.
-                // But PDF rendering might need visibility? Usually not for print().
+                console.log(`[PrintManager] File loaded. Showing modal...`);
+                printWindow.show();
                 
                 // Add delay for PDF Viewer initialization
-                setTimeout(async () => {
+                setTimeout(() => {
                     if (!printWindow || printWindow.isDestroyed()) return;
 
-                    console.log(`[PrintManager] Triggering print command...`);
-                    
-                    // SECURITY: Enforce Safe Printing
-                    // 1. Resolve effective printer
-                    let targetDevice = deviceName;
-                    if (!targetDevice) {
-                        const printers = await printWindow.webContents.getPrintersAsync();
-                        const defaultPrinter = printers.find(p => p.isDefault);
-                        if (defaultPrinter) targetDevice = defaultPrinter.name;
-                    }
-                    
-                    // 2. Validate Safety
-                    const lower = (targetDevice || '').toLowerCase();
-                    const isUnsafe = lower.includes('pdf') || 
-                                     lower.includes('xps') || 
-                                     lower.includes('onenote') || 
-                                     lower.includes('fax') ||
-                                     lower.includes('virtual');
-
-                    if (isUnsafe) {
-                        console.error(`[PrintManager] BLOCKED: Attempt to print to unsafe/virtual device (${targetDevice}).`);
-                        // We can't easily alert the renderer from here without IPC, but we cancel the job.
-                         // Ideally we throw an error that propagates back? 
-                         // For now, simple console log and cleanup.
-                        cleanup();
-                        reject(new Error(`Security Block: The selected or default printer (${targetDevice}) is virtual/unsafe. Please select a physical printer.`));
-                        return;
-                    }
-
-                    console.log(`[PrintManager] Printing securely to: ${targetDevice}`);
-
+                    console.log(`[PrintManager] Triggering print dialog...`);
                     printWindow.webContents.print({ 
-                        silent: true, // ALWAYS TRUE: Prevents "Save as PDF" dialog loophole
-                        deviceName: targetDevice,
+                        silent: false,
                         printBackground: true 
                     }, (success, failureReason) => {
                         if (success) {

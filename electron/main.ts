@@ -116,18 +116,13 @@ app.whenReady().then(async () => {
       sessionManager.endSession('MANUAL');
   });
 
-  ipcMain.handle('files:get-printers', async (event) => {
-      if (!mainWindow) return [];
-      return await sessionManager.getPrintManager().getSafePrinters(mainWindow);
-  });
-
-  ipcMain.on('files:print', async (event, fileName: string, deviceName?: string) => {
+  ipcMain.on('files:print', async (event, fileName: string) => {
       try {
           const sessionPath = await sessionManager.getSessionPath();
           if (!sessionPath) throw new Error("No active session");
           
           const filePath = path.join(sessionPath, fileName);
-          console.log(`[Main] Requesting print for: ${filePath} (Printer: ${deviceName || 'System'})`);
+          console.log(`[Main] Requesting print for: ${filePath}`);
           
           if (!mainWindow) throw new Error("Main window not available");
 
@@ -141,7 +136,7 @@ app.whenReady().then(async () => {
                return; // Graceful exit, no error thrown
           }
           
-          await sessionManager.getPrintManager().printFile(filePath, mainWindow, deviceName);
+          await sessionManager.getPrintManager().printFile(filePath, mainWindow);
           event.sender.send('session:status', `Printed: ${fileName}`);
       } catch (err: any) {
           console.error('[Main] Print failed:', err);

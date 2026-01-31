@@ -36,8 +36,7 @@ declare global {
       startSession: () => void;
       endSession: () => void;
       triggerFileImport: () => void;
-      printFile: (fileName: string, deviceName?: string) => void;
-      getPrinters: () => Promise<{ name: string; displayName?: string; isDefault?: boolean }[]>;
+      printFile: (fileName: string) => void;
       previewFile: (fileName: string) => void;
       deleteFile: (fileName: string) => Promise<void>;
       triggerScan: () => void;

@@ -59,11 +59,6 @@ export default function Home() {
       pictures: false
   });
 
-  // Printer Modal State
-  const [printers, setPrinters] = useState<any[]>([]);
-  const [showPrinterModal, setShowPrinterModal] = useState(false);
-  const [printTargetFile, setPrintTargetFile] = useState<string | null>(null);
-
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.onSessionStatus((_event, value) => {
@@ -130,32 +125,10 @@ export default function Home() {
     window.electronAPI.triggerScan();
   };
   
-  const handlePrint = async (fileName: string) => {
-      if (!window.electronAPI) return;
-
-      try {
-          const fetchedPrinters = await window.electronAPI.getPrinters();
-          
-          if (fetchedPrinters.length > 0) {
-              setPrinters(fetchedPrinters);
-              setPrintTargetFile(fileName);
-              setShowPrinterModal(true);
-          } else {
-              // No physical printers found - Fallback to system dialog
-              window.electronAPI.printFile(fileName);
-          }
-      } catch (e) {
-          console.error("Printer fetch failed", e);
+  const handlePrint = (fileName: string) => {
+      if (window.electronAPI) {
           window.electronAPI.printFile(fileName);
       }
-  };
-
-  const confirmPrint = (deviceName?: string) => {
-      if (printTargetFile && window.electronAPI) {
-          window.electronAPI.printFile(printTargetFile, deviceName);
-      }
-      setShowPrinterModal(false);
-      setPrintTargetFile(null);
   };
 
   const handlePreview = (fileName: string) => {
@@ -486,43 +459,6 @@ export default function Home() {
               </div>
             </div>
           </div>
-        )}
-
-        {/* Printer Selection Modal */}
-        {showPrinterModal && (
-            <div style={{
-                position: 'fixed', top:0, left:0, right:0, bottom:0,
-                background: 'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex: 9999
-            }}>
-               <div className="bh-card" style={{ width: '400px', maxHeight: '80vh', overflowY: 'auto' }}>
-                   <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-                        <h3 style={{margin:0}}>Select Secure Printer</h3>
-                        <button style={{background:'none', border:'none', cursor:'pointer', fontSize:'20px'}} onClick={() => setShowPrinterModal(false)}>✕</button>
-                   </div>
-                   
-                   <p style={{fontSize:'13px', color:'#666', marginBottom:'15px'}}>
-                        Virtual printers (PDF, Fax) are blocked.
-                   </p>
-
-                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                       {printers.map(p => (
-                           <button key={p.name} className="bh-btn" onClick={() => confirmPrint(p.name)} style={{justifyContent: 'flex-start', textAlign:'left'}}>
-                               <Printer size={16} style={{marginRight: 8}}/> {p.name}
-                           </button>
-                       ))}
-                        
-                        <div style={{borderTop:'1px solid #eee', margin:'10px 0'}}></div>
-
-                        <button className="bh-btn bh-btn-secondary" onClick={() => confirmPrint(undefined)}>
-                           <Printer size={16} style={{marginRight: 8}}/> System Dialog (Default)
-                       </button>
-
-                       <button className="bh-btn bh-btn-danger" onClick={() => setShowPrinterModal(false)} style={{marginTop:'10px'}}>
-                           Cancel
-                       </button>
-                   </div>
-               </div>
-            </div>
         )}
       </main>
     </div>
