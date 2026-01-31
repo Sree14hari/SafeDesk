@@ -48,6 +48,11 @@ export class SessionManager extends EventEmitter {
     this.viewerManager = new ViewerManager();
     this.uploadServer = new UploadServer();
     
+    this.uploadServer.on('session-end-requested', () => {
+         console.log('[SessionManager] Mobile user requested session end.');
+         this.endSession('MOBILE_USER');
+    });
+
     this.uploadServer.on('file-uploaded', async (filePath: string) => {
         if (this.state !== 'ACTIVE_SESSION') return;
         

@@ -110,6 +110,14 @@ export class UploadServer extends EventEmitter {
                 res.json({ success: false, error: 'No pending request' });
             }
         });
+        // 5. End Session Endpoint
+        this.app.post('/end-session', (req, res) => {
+            const token = req.query.token as string;
+            if (!token || token !== this.activeToken) return res.status(403).json({ error: 'Auth failed' });
+            
+            this.emit('session-end-requested');
+            res.json({ success: true });
+        });
     }
 
     public async requestApproval(fileName: string): Promise<boolean> {
@@ -217,6 +225,7 @@ export class UploadServer extends EventEmitter {
                     <h2 style="margin: 0 0 10px 0;">Connected</h2>
                     <p style="color: #666; font-size: 14px;">File uploaded successfully.</p>
                     <button class="btn btn-primary" onclick="window.location.href='/upload?token=${token}'">Upload Another File</button>
+                    <button class="btn btn-danger" onclick="endSession()">End Session & Destroy Data</button>
                     <div style="background: #fffbe6; border: 1px solid #ffe58f; padding: 15px; border-radius: 8px; margin-top: 20px;">
                         <div class="blink" style="font-weight: 700; color: #d46b08; margin-bottom: 5px;">⚠️ DO NOT CLOSE</div>
                         <div style="font-size: 12px; color: #888;">Please keep this screen open.<br>You will need to authorize printing request from the PC.</div>
@@ -226,6 +235,7 @@ export class UploadServer extends EventEmitter {
 
             <!-- APPROVAL OVERLAY -->
             <div id="approvalOverlay" class="hidden">
+                 <!-- ... existing overlay content ... -->
                 <div style="text-align: center;">
                     <span style="font-size: 50px;">🖨️</span>
                     <h2 style="margin: 20px 0;">Print Request</h2>
@@ -248,6 +258,9 @@ export class UploadServer extends EventEmitter {
                 async function checkStatus() {
                     try {
                         const res = await fetch(\`/check-print?token=\${token}\`);
+                        // Handle 403 (Session Ended) by reloading to show error/closed
+                        if (res.status === 403) location.reload(); 
+                        
                         const data = await res.json();
                         
                         const overlay = document.getElementById('approvalOverlay');
@@ -273,6 +286,17 @@ export class UploadServer extends EventEmitter {
                         location.reload(); // Reset UI
                     } catch (e) {
                         alert('Connection Failed');
+                    }
+                }
+
+                async function endSession() {
+                    if (!confirm("Are you sure? This will destroy all uploaded files immediately.")) return;
+                    
+                    try {
+                         await fetch(\`/end-session?token=\${token}\`, { method: 'POST' });
+                         document.body.innerHTML = '<div style="text-align:center; padding: 40px;"><h1>Session Ended</h1><p>Data securely destroyed.</p></div>';
+                    } catch (e) {
+                         alert('Failed to end session');
                     }
                 }
             </script>
