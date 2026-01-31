@@ -1,5 +1,6 @@
 
 import * as dotenv from 'dotenv';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 dotenv.config();
 
@@ -33,28 +34,66 @@ const DEFAULT_POLICY: PolicyRecommendation = {
 };
 
 export class GeminiPolicyService {
-    private apiKey: string | undefined;
+    private openrouterKey: string | undefined;
+    private geminiKey: string | undefined;
+    private currentProvider: 'openrouter' | 'gemini' = 'openrouter';
     private apiUrl: string = "https://openrouter.ai/api/v1/chat/completions";
     private model: string = "tngtech/deepseek-r1t2-chimera:free";
+    private geminiModel: any;
 
     constructor() {
-        this.apiKey = process.env.OPENROUTER_API_KEY;
-        if (!this.apiKey || this.apiKey.trim() === '') {
-            // Silent mode - no API key configured, will use baseline policies
-            this.apiKey = undefined;
+        this.openrouterKey = process.env.OPENROUTER_API_KEY;
+        this.geminiKey = process.env.GEMINI_API_KEY;
+        
+        // Clean up empty keys
+        if (!this.openrouterKey || this.openrouterKey.trim() === '') {
+            this.openrouterKey = undefined;
         }
+        if (!this.geminiKey || this.geminiKey.trim() === '') {
+            this.geminiKey = undefined;
+        }
+        
+        // Initialize Gemini if key is available
+        if (this.geminiKey) {
+            const genAI = new GoogleGenerativeAI(this.geminiKey);
+            this.geminiModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        }
+        
+        // Start with OpenRouter if available, otherwise Gemini
+        if (this.openrouterKey) {
+            this.currentProvider = 'openrouter';
+        } else if (this.geminiKey) {
+            this.currentProvider = 'gemini';
+        }
+    }
+    
+    private switchToGemini() {
+        if (this.geminiKey && this.geminiModel) {
+            console.log('[GeminiPolicyService] Switching from OpenRouter to Gemini API');
+            this.currentProvider = 'gemini';
+            return true;
+        }
+        return false;
     }
 
     public async getRecommendation(context: SystemContext): Promise<PolicyRecommendation> {
-        if (!this.apiKey) {
+        if (!this.openrouterKey && !this.geminiKey) {
             return DEFAULT_POLICY;
         }
 
+        // If using Gemini, call it directly
+        if (this.currentProvider === 'gemini') {
+            return this.getGeminiRecommendation(context);
+        }
+
+        // Otherwise use OpenRouter
+        const currentApiKey = this.openrouterKey;
+        
         try {
             const response = await fetch(this.apiUrl, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
+                    'Authorization': `Bearer ${currentApiKey}`,
                     'Content-Type': 'application/json',
                     'HTTP-Referer': 'https://secureengine.local',
                     'X-Title': 'SecureEngine Safety Advisor'
@@ -97,57 +136,101 @@ Return ONLY the JSON object, nothing else.`
 
             if (!response.ok) {
                 const errorBody = await response.text();
+                
+                // If OpenRouter returns 401 and we have Gemini key, switch and retry
+                if (response.status === 401 && this.currentProvider === 'openrouter' && this.switchToGemini()) {
+                    console.log('[GeminiPolicyService] OpenRouter 401 - Retrying with Gemini...');
+                    return this.getRecommendation(context); // Recursive retry with Gemini
+                }
+                
                 console.error(`[GeminiPolicyService] API Error Details:`, {
                     status: response.status,
                     statusText: response.statusText,
                     body: errorBody
                 });
-                throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+                throw new Error(`${this.currentProvider} API error: ${response.status} ${response.statusText}`);
             }
 
             const data = await response.json();
             const text = data.choices[0]?.message?.content || "";
             
-            console.log('[GeminiPolicyService] Raw AI response:', text.substring(0, 200));
-            
-            // Clean markdown code blocks if present
-            let jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            
-            // Try to extract JSON if it's embedded in text
-            const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                jsonStr = jsonMatch[0];
-            }
-            
-            if (!jsonStr || jsonStr.length < 10) {
-                console.warn('[GeminiPolicyService] AI returned empty or invalid response');
-                return DEFAULT_POLICY;
-            }
-            
-            const recommendation = JSON.parse(jsonStr) as PolicyRecommendation;
-            
-            // Basic Schema Validation / Clamping logic could go here, 
-            // but we trust the Enforcer (SessionManager) to do the hard clamping.
-            // We just ensure types are correct-ish.
-            return {
-                recommended_timeout_minutes: Number(recommendation.recommended_timeout_minutes) || 15,
-                auto_end_if_idle_minutes: Number(recommendation.auto_end_if_idle_minutes) || 5,
-                require_user_confirmation: Boolean(recommendation.require_user_confirmation),
-                allow_multiple_uploads: Boolean(recommendation.allow_multiple_uploads),
-                risk_level: (['low', 'medium', 'high'].includes(recommendation.risk_level) ? recommendation.risk_level : 'low') as any,
-                reason: recommendation.reason || "AI provided policy."
-            };
+            return this.parseAIResponse(text);
 
         } catch (error) {
-            // Only log errors if we actually have an API key configured
-            if (this.apiKey) {
+            const hasKey = this.openrouterKey || this.geminiKey;
+            if (hasKey) {
                 console.error("[GeminiPolicyService] Error generating policy:", error);
             }
             const errorMessage = (error as any).message || "Unknown error";
             return {
                 ...DEFAULT_POLICY,
-                reason: this.apiKey ? `AI Unavailable: ${errorMessage}` : "Baseline Protection"
+                reason: hasKey ? `AI Unavailable: ${errorMessage}` : "Baseline Protection"
             };
         }
+    }
+
+    private async getGeminiRecommendation(context: SystemContext): Promise<PolicyRecommendation> {
+        try {
+            const prompt = `You are a security policy advisor. Analyze this session and recommend security settings.
+
+Session Context:
+- Age: ${context.session_age_minutes} minutes
+- Idle: ${context.user_idle_minutes} minutes  
+- Files: ${context.files_uploaded}
+- Time: ${context.time_of_day}
+- Environment: ${context.environment_type}
+
+Return ONLY valid JSON in this exact format:
+{
+  "recommended_timeout_minutes": <number 1-15>,
+  "auto_end_if_idle_minutes": <number 1-10>,
+  "require_user_confirmation": <boolean>,
+  "allow_multiple_uploads": <boolean>,
+  "risk_level": "low" | "medium" | "high",
+  "reason": "<brief explanation>"
+}`;
+
+            const result = await this.geminiModel.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            
+            return this.parseAIResponse(text);
+        } catch (error) {
+            console.error("[GeminiPolicyService] Gemini error:", error);
+            return {
+                ...DEFAULT_POLICY,
+                reason: `Gemini Unavailable: ${(error as any).message || "Unknown error"}`
+            };
+        }
+    }
+
+    private parseAIResponse(text: string): PolicyRecommendation {
+        console.log('[GeminiPolicyService] Raw AI response:', text.substring(0, 200));
+        
+        // Clean markdown code blocks if present
+        let jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        
+        // Try to extract JSON if it's embedded in text
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            jsonStr = jsonMatch[0];
+        }
+        
+        if (!jsonStr || jsonStr.length < 10) {
+            console.warn('[GeminiPolicyService] AI returned empty or invalid response');
+            return DEFAULT_POLICY;
+        }
+        
+        const recommendation = JSON.parse(jsonStr) as PolicyRecommendation;
+        
+        // Validate and normalize
+        return {
+            recommended_timeout_minutes: Number(recommendation.recommended_timeout_minutes) || 15,
+            auto_end_if_idle_minutes: Number(recommendation.auto_end_if_idle_minutes) || 5,
+            require_user_confirmation: Boolean(recommendation.require_user_confirmation),
+            allow_multiple_uploads: Boolean(recommendation.allow_multiple_uploads),
+            risk_level: (['low', 'medium', 'high'].includes(recommendation.risk_level) ? recommendation.risk_level : 'low') as any,
+            reason: recommendation.reason || "AI provided policy."
+        };
     }
 }

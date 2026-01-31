@@ -303,9 +303,10 @@ export class SessionManager extends EventEmitter {
       this.currentTimeout = DEFAULT_INACTIVITY_MS;
       this.startInactivityTimer();
       
-      // Start AI Policy Heartbeat (every 5 minutes to conserve API quota)
-      this.policyInterval = setInterval(() => this.updateSafetyPolicy(), 300 * 1000);
-      this.updateSafetyPolicy(); // Initial check - runs immediately
+      
+      // AI Policy Check - Only once at session start to conserve API quota
+      this.updateSafetyPolicy(); // Single check at session start
+      
       
       if (this.sessionType === 'TASK' && this.sessionPath) {
           this.taskBrowser = new TaskBrowser(this.sessionPath, this.activeSessionId!);
