@@ -35,9 +35,21 @@ const sendSessionInfo = (target: any) => {
     target.send('session:info-updated', info);
 };
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // 1. Crash Recovery on Startup
+  await sessionManager.recoverSessions();
+
   createWindow();
 
+  // 2. Lifecycle Event Listener from SessionManager
+  sessionManager.on('session-ended', (reason: string) => {
+      console.log(`Main Process: Sending session-ended (${reason})`);
+      if (mainWindow) {
+          mainWindow.webContents.send('session:ended', reason);
+      }
+  });
+
+  // 3. IPC Handlers
   ipcMain.on('session:start', async (event) => {
     try {
       const sessionId = await sessionManager.startSession();
@@ -50,10 +62,13 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.on('session:end', (event) => {
+      sessionManager.endSession('MANUAL');
+  });
+
   ipcMain.on('files:trigger-import', async (event) => {
     if (!mainWindow) return;
 
-    // Reject if no session (extra safety)
     const { id } = sessionManager.getSessionInfo();
     if (!id) {
         event.sender.send('session:status', 'Error: No active session');
@@ -70,7 +85,7 @@ app.whenReady().then(() => {
         console.log('Importing files:', result.filePaths);
         const importedFiles = await sessionManager.importFiles(result.filePaths);
         event.sender.send('files:updated', importedFiles);
-        sendSessionInfo(event.sender); // Update size/count
+        sendSessionInfo(event.sender);
       } catch (error: any) {
         console.error('Import Error:', error);
          const msg = error instanceof Error ? error.message : String(error);

@@ -1,14 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-// Re-defining locally for clarity in this file context, though global.d.ts handles it.
 interface SessionInfo {
     id: string | null;
     startTime: number | null;
     totalSize: number;
     fileCount: number;
 }
-
 interface FileMetadata {
   name: string;
   size: number;
@@ -21,17 +19,23 @@ export default function Home() {
   });
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [isImporting, setIsImporting] = useState(false);
+  const [endReason, setEndReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (window.electronAPI) {
-      window.electronAPI.onSessionStatus((_event, value) => {
-        setStatus(value);
-        setIsImporting(false); // Reset loading state on status update
-      });
+      window.electronAPI.onSessionStatus((_event, value) => setStatus(value));
 
       window.electronAPI.onSessionCreated((_event, id) => {
         setStatus(`Session Active`);
         setFiles([]); 
+        setEndReason(null);
+      });
+
+      window.electronAPI.onSessionEnded((_event, reason) => {
+          setSessionInfo({ id: null, startTime: null, totalSize: 0, fileCount: 0 });
+          setFiles([]);
+          setStatus('No Active Session');
+          setEndReason(reason);
       });
 
       window.electronAPI.onFilesUpdated((_event, newFiles) => {
@@ -51,6 +55,12 @@ export default function Home() {
       window.electronAPI.startSession();
       setStatus('Initializing Secure Workspace...');
     }
+  };
+
+  const handleEndSession = () => {
+      if (window.electronAPI && confirm("Are you sure you want to end this secure session?")) {
+        window.electronAPI.endSession();
+      }
   };
 
   const handleImport = () => {
@@ -81,8 +91,15 @@ export default function Home() {
             <div style={{ width: '24px', height: '24px', background: sessionInfo.id ? '#28a745' : '#ccc', borderRadius: '50%' }}></div>
             <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>SecureEngine</h1>
         </div>
-        <div style={{ fontSize: '14px', color: '#666' }}>
-            Status: <strong>{status}</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div style={{ fontSize: '14px', color: '#666' }}>Status: <strong>{status}</strong></div>
+            {sessionInfo.id && (
+                <button 
+                    onClick={handleEndSession} 
+                    style={{ background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px' }}>
+                    End Session
+                </button>
+            )}
         </div>
       </header>
 
@@ -94,6 +111,12 @@ export default function Home() {
             <span style={{ fontSize: '18px' }}>🔐</span>
             <span style={{ fontSize: '14px', fontWeight: 500 }}>Safe Workspace: Files imported here are isolated in a temporary session and never saved to your standard folders.</span>
         </div>
+
+        {endReason && !sessionInfo.id && (
+            <div style={{ marginBottom: '20px', padding: '15px', background: '#ffebee', color: '#c62828', borderRadius: '8px', border: '1px solid #ef9a9a' }}>
+                Session Ended: <strong>{endReason}</strong>
+            </div>
+        )}
 
         {!sessionInfo.id ? (
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
