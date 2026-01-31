@@ -27,31 +27,163 @@ export class UploadServer extends EventEmitter {
                 return res.status(403).send('Invalid or expired Secure Upload Token.');
             }
 
-            // Minimal HTML
+            // Mobile-Friendly Secure Upload UI
             res.send(`
                 <!DOCTYPE html>
                 <html lang="en">
                 <head>
-                    <meta charset="viewport" content="width=device-width, initial-scale=1.0">
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                     <title>Secure Upload</title>
                     <style>
-                        body { font-family: sans-serif; padding: 20px; text-align: center; }
-                        .container { max-width: 400px; margin: 0 auto; border: 2px solid #000; padding: 20px; border-radius: 12px; }
-                        h1 { font-size: 20px; margin-bottom: 20px; }
-                        input[type="file"] { margin-bottom: 20px; width: 100%; }
-                        button { background: #000; color: #fff; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; }
-                        .info { font-size: 12px; color: #666; margin-top: 20px; }
+                        :root {
+                            --primary: #000000;
+                            --danger: #cf1322;
+                            --bg: #f5f5f5;
+                            --card-bg: #ffffff;
+                            --text: #333333;
+                        }
+                        body {
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                            background-color: var(--bg);
+                            margin: 0;
+                            padding: 20px;
+                            height: 100vh;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            box-sizing: border-box;
+                        }
+                        .container {
+                            background: var(--card-bg);
+                            width: 100%;
+                            max-width: 400px;
+                            padding: 30px;
+                            border-radius: 16px;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+                            text-align: center;
+                        }
+                        .brand {
+                            font-weight: 800;
+                            font-size: 20px;
+                            margin-bottom: 24px;
+                            color: var(--primary);
+                            text-transform: uppercase;
+                            letter-spacing: -0.5px;
+                        }
+                        .upload-box {
+                            border: 2px dashed #ddd;
+                            border-radius: 12px;
+                            padding: 30px 20px;
+                            margin-bottom: 24px;
+                            cursor: pointer;
+                            transition: all 0.2s;
+                            position: relative;
+                        }
+                        .upload-box:hover, .upload-box.drag-over {
+                            border-color: var(--primary);
+                            background-color: #fafafa;
+                        }
+                        input[type="file"] {
+                            position: absolute;
+                            top: 0; left: 0; width: 100%; height: 100%;
+                            opacity: 0;
+                            cursor: pointer;
+                        }
+                        .upload-icon {
+                            font-size: 32px;
+                            margin-bottom: 10px;
+                            display: block;
+                        }
+                        .upload-text {
+                            font-size: 14px;
+                            color: #666;
+                            font-weight: 500;
+                        }
+                        button {
+                            background: var(--primary);
+                            color: white;
+                            border: none;
+                            width: 100%;
+                            padding: 16px;
+                            font-size: 16px;
+                            font-weight: 600;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            transition: transform 0.1s;
+                        }
+                        button:active {
+                            transform: scale(0.98);
+                        }
+                        .badge {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                            background: #e6f7ff;
+                            color: #0050b3;
+                            padding: 6px 12px;
+                            border-radius: 20px;
+                            font-size: 12px;
+                            font-weight: 700;
+                            margin-bottom: 24px;
+                        }
+                        .secure-note {
+                            font-size: 12px;
+                            color: #888;
+                            margin-top: 24px;
+                            line-height: 1.5;
+                            border-top: 1px solid #eee;
+                            padding-top: 16px;
+                        }
+                        .file-name {
+                            margin-top: 10px;
+                            font-weight: 600;
+                            color: var(--primary);
+                            display: none;
+                        }
                     </style>
                 </head>
                 <body>
                     <div class="container">
-                        <h1>SecureEngine Intake</h1>
+                        <div class="brand">SecureEngine</div>
+                        
+                        <div class="badge">
+                            <span style="font-size: 14px">🔒</span> End-to-End Local Encryption
+                        </div>
+
                         <form action="/upload?token=${token}" method="post" enctype="multipart/form-data">
-                            <input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,.docx" required>
+                            <div class="upload-box" id="dropArea">
+                                <input type="file" name="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.docx" required>
+                                <span class="upload-icon">📄</span>
+                                <div class="upload-text">Tap to select a document</div>
+                                <div class="file-name" id="fileName"></div>
+                            </div>
+
                             <button type="submit">Secure Upload</button>
                         </form>
-                        <p class="info">Files are securely destroyed immediately after printing.<br>This link expires after use.</p>
+
+                        <p class="secure-note">
+                            This link is single-use only.<br>
+                            Your file will be transferred directly to the terminal and 
+                            <span style="color: var(--danger); font-weight: 700;">permanently destroyed</span> 
+                            after this session.
+                        </p>
                     </div>
+
+                    <script>
+                        const input = document.getElementById('fileInput');
+                        const fileNameDisplay = document.getElementById('fileName');
+                        const uploadText = document.querySelector('.upload-text');
+
+                        input.addEventListener('change', (e) => {
+                            if (input.files.length > 0) {
+                                fileNameDisplay.textContent = input.files[0].name;
+                                fileNameDisplay.style.display = 'block';
+                                uploadText.style.display = 'none';
+                            }
+                        });
+                    </script>
                 </body>
                 </html>
             `);
