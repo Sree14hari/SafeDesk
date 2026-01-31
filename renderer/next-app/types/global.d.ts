@@ -14,6 +14,22 @@ declare global {
       fileCount: number;
   }
 
+  interface ResidueFile {
+      path: string;
+      name: string;
+      location: 'Desktop' | 'Downloads';
+  }
+
+  interface InspectionReport {
+      timestamp: number;
+      foundFiles: ResidueFile[];
+  }
+
+  interface CleanupReport {
+      successCount: number;
+      failures: string[];
+  }
+
   interface Window {
     electronAPI: {
       startSession: () => void;
@@ -22,6 +38,9 @@ declare global {
       printFile: (fileName: string) => void;
       previewFile: (fileName: string) => void;
       triggerScan: () => void;
+      
+      scanResidue: () => Promise<InspectionReport>;
+      cleanResidue: (files: ResidueFile[]) => Promise<CleanupReport>;
       
       onSessionStatus: (callback: (event: any, value: string) => void) => void;
       onSessionCreated: (callback: (event: any, sessionId: string) => void) => void;

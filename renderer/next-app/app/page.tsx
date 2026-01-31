@@ -13,6 +13,12 @@ interface FileMetadata {
   originalPath: string | null;
 }
 
+interface ResidueFile {
+    path: string;
+    name: string;
+    location: 'Desktop' | 'Downloads';
+}
+
 export default function Home() {
   const [status, setStatus] = useState('Ready');
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
@@ -22,6 +28,11 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [endReason, setEndReason] = useState<string | null>(null);
   const [wipeFailures, setWipeFailures] = useState<string[]>([]);
+  
+  // Phase 5 State
+  const [residueFiles, setResidueFiles] = useState<ResidueFile[]>([]);
+  const [hasScanned, setHasScanned] = useState(false);
+  const [cleanupReport, setCleanupReport] = useState<string | null>(null);
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -101,6 +112,41 @@ export default function Home() {
       }
   };
   
+  // --- Phase 5 Handlers ---
+
+  const handleResidueScan = async () => {
+      if (!window.electronAPI) return;
+      setIsProcessing(true);
+      try {
+          const report = await window.electronAPI.scanResidue();
+          setResidueFiles(report.foundFiles);
+          setHasScanned(true);
+          setCleanupReport(null);
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
+  const handleResidueCleanup = async () => {
+      if (!window.electronAPI) return;
+      
+      if (!confirm(`DETECTED ${residueFiles.length} RISKY FILES.\n\nThis will PERMANENTLY WIPE these files from your Desktop/Downloads folders.\n\nAre you sure?`)) {
+          return;
+      }
+      
+      setIsProcessing(true);
+      try {
+          const result = await window.electronAPI.cleanResidue(residueFiles);
+          setCleanupReport(`Securely Wiped: ${result.successCount} files. Failures: ${result.failures.length}`);
+          setResidueFiles([]); // Clear list assuming done (or re-scan to verify)
+          if (result.failures.length > 0) {
+              alert(`Cleanup Warnings:\n${result.failures.join('\n')}`);
+          }
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+  
   const formatBytes = (bytes: number) => {
       if (bytes === 0) return '0 B';
       const k = 1024;
@@ -176,9 +222,62 @@ export default function Home() {
             </div>
         )}
 
+        {/* Phase 5: Residue Guard Section */}
+        {!sessionInfo.id && <div style={{ marginBottom: '30px', padding: '20px', background: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span>🛡️</span> Data Residue Guard
+                </h3>
+                <button 
+                    onClick={handleResidueScan}
+                    disabled={isProcessing}
+                    style={{ background: '#fff', border: '1px solid #ccc', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                    {isProcessing ? 'Scanning...' : 'Scan Desktop & Downloads'}
+                </button>
+            </div>
+            
+            {cleanupReport && (
+                <div style={{ padding: '10px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '4px', fontSize: '13px', marginBottom: '10px' }}>
+                    {cleanupReport}
+                </div>
+            )}
+
+            {hasScanned && (
+                <div>
+                    {residueFiles.length === 0 ? (
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2e7d32' }}>
+                             <span style={{ fontSize: '24px' }}>✅</span>
+                             <span>System Clean. No obvious high-risk files detected.</span>
+                         </div>
+                    ) : (
+                        <div style={{ background: '#fff', border: '1px solid #ffcdd2', borderRadius: '8px', padding: '15px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#b71c1c', marginBottom: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 600 }}>
+                                    <span>⚠️</span> {residueFiles.length} Potential Risk Files Found
+                                </div>
+                                <button
+                                    onClick={handleResidueCleanup}
+                                    style={{ background: '#d32f2f', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    SECURE CLEANUP ALL
+                                </button>
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#666', maxHeight: '100px', overflowY: 'auto' }}>
+                                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                                    {residueFiles.map((f, i) => (
+                                        <li key={i}>{f.name} <span style={{color:'#999'}}>({f.location})</span></li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>}
+
         {!sessionInfo.id ? (
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
-            <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', maxWidth: '400px' }}>
+            <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', maxWidth: '400px', borderTop: '4px solid #111' }}>
                 <h2 style={{ marginTop: 0 }}>Start Disposition Session</h2>
                 <p style={{ color: '#666', marginBottom: '30px' }}>Securely review, print, scan, and destroy sensitive documents.</p>
                 <button 

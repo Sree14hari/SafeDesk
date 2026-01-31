@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   previewFile: (fileName: string) => ipcRenderer.send('files:preview', fileName),
   triggerScan: () => ipcRenderer.send('files:scan'),
   
+  // Phase 5: Residue Guard
+  scanResidue: () => ipcRenderer.invoke('residue:scan'),
+  cleanResidue: (files: any[]) => ipcRenderer.invoke('residue:clean', files),
+  
   onSessionStatus: (callback: (event: any, value: string) => void) => 
     ipcRenderer.on('session:status', callback),
     

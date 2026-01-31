@@ -2,10 +2,12 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import { SessionManager } from './sessionManager';
 import { ScanManager } from './scanManager';
+import { ResidueScanner, ResidueFile } from './residueScanner';
 
 let mainWindow: BrowserWindow | null = null;
 const sessionManager = new SessionManager();
 const scanManager = new ScanManager();
+const residueScanner = new ResidueScanner();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -155,6 +157,18 @@ app.whenReady().then(async () => {
         event.sender.send('session:status', `Import failed: ${msg}`);
       }
     }
+  });
+
+  // --- Residue Guard IPC ---
+
+  ipcMain.handle('residue:scan', async () => {
+      console.log('[Main] Residue Scan Requested');
+      return await residueScanner.scan();
+  });
+
+  ipcMain.handle('residue:clean', async (event, files: ResidueFile[]) => {
+      console.log(`[Main] Residue Cleaning Requested for ${files.length} files`);
+      return await residueScanner.clean(files);
   });
 
   app.on('activate', () => {
