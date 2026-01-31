@@ -6,12 +6,15 @@ import { secureWipeSession, secureDeleteFile } from './secureWipe';
 import { PrintManager } from './printManager';
 import { ViewerManager } from './viewerManager';
 import { AuditLogger } from './auditLogger';
+import { UploadServer } from './uploadServer';
+import * as crypto from 'crypto';
+import * as QRCode from 'qrcode';
 
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
-export interface FileMetadata { name: string; size: number; originalPath: string | null; }
-export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; state: SystemState; mode: SystemMode; }
+export interface FileMetadata { name: string; size: number; originalPath: string | null; source: 'IMPORT' | 'SCAN' | 'UPLOAD'; }
+export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; state: SystemState; mode: SystemMode; uploadUrl?: string | null; }
 
 export type SystemMode = 'CUSTOMER' | 'OWNER';
 
@@ -29,6 +32,8 @@ export class SessionManager extends EventEmitter {
   private printManager: PrintManager;
   private viewerManager: ViewerManager;
   private auditLogger: AuditLogger;
+  private uploadServer: UploadServer;
+  private uploadUrl: string | null = null;
 
   // Strict State Machine
   private state: SystemState = 'IDLE';
@@ -41,7 +46,36 @@ export class SessionManager extends EventEmitter {
     this.auditLogger = new AuditLogger();
     this.printManager = new PrintManager();
     this.viewerManager = new ViewerManager();
+    this.uploadServer = new UploadServer();
     
+    this.uploadServer.on('file-uploaded', async (filePath: string) => {
+        if (this.state !== 'ACTIVE_SESSION') return;
+        
+        console.log(`[SessionManager] QR Upload received: ${filePath}`);
+        this.notifyActivity();
+
+        try {
+            const stats = await fs.stat(filePath);
+            const metadata: FileMetadata = {
+                name: path.basename(filePath),
+                size: stats.size,
+                originalPath: null, // No local source to wipe outside session
+                source: 'UPLOAD'
+            };
+
+            this.importedFiles.push(metadata);
+            this.totalSize += stats.size;
+            
+            // Notify Main -> UI
+            this.emit('files-updated', [metadata]);
+            this.emit('session-info-updated', this.getSessionInfo());
+
+            await this.auditLogger.logAction("Secure Upload", "Received file via Local QR Ingress");
+        } catch (e) {
+            console.error('[SessionManager] Failed to process uploaded file:', e);
+        }
+    });
+
     // Initial state load is handled in recovery
   }
 
@@ -55,10 +89,7 @@ export class SessionManager extends EventEmitter {
           throw new Error("Cannot switch to Owner mode while a Customer Session is active. End session first.");
       }
       this.mode = newMode;
-      this.auditLogger.logBlockedAction("Mode Change", `Switched to ${newMode} mode.`); // Logging mode change as an event (using block action generically or adding new type if strict)
-      // Actually strictly "Action Blocked" isn't right. I'll use a generic log if needed, or just rely on session boundary logs.
-      // Reuse "Session End" for mode switch? No. 
-      // I'll skip logging mode switch for now unless strictly required, but "Modes enforced" implies internal state.
+      this.auditLogger.logBlockedAction("Mode Change", `Switched to ${newMode} mode.`); 
   }
 
   private async transitionTo(newState: SystemState, reason: string) {
@@ -155,6 +186,17 @@ export class SessionManager extends EventEmitter {
       await this.transitionTo('ACTIVE_SESSION', 'User Start');
       await this.auditLogger.logSessionStart(this.activeSessionId);
 
+      // Start Upload Server
+      const token = crypto.randomBytes(16).toString('hex');
+      try {
+           const rawUrl = await this.uploadServer.start(this.sessionPath, token);
+           this.uploadUrl = await QRCode.toDataURL(rawUrl);
+           console.log(`[SessionManager] QR Code generated for: ${rawUrl}`);
+      } catch (e) {
+           console.error('[SessionManager] Failed to start Upload Server or generate QR:', e);
+           this.uploadUrl = null;
+      }
+
       this.startInactivityTimer();
       return this.activeSessionId;
 
@@ -169,6 +211,10 @@ export class SessionManager extends EventEmitter {
       if (!this.activeSessionId || !this.sessionPath) return;
 
       console.log(`[SessionManager] Ending session ${this.activeSessionId}. Reason: ${reason}`);
+      
+      // Stop Upload Server Immediately
+      this.uploadServer.stop();
+      this.uploadUrl = null;
       
       await this.transitionTo('DESTRUCTION_IN_PROGRESS', reason);
       this.emit('session-wiping');
@@ -264,7 +310,8 @@ export class SessionManager extends EventEmitter {
        const metadata: FileMetadata = {
            name: path.basename(scanPath),
            size: stats.size,
-           originalPath: null 
+           originalPath: null,
+           source: 'SCAN'
        };
        this.importedFiles.push(metadata);
        this.totalSize += stats.size;
@@ -275,7 +322,6 @@ export class SessionManager extends EventEmitter {
     if (this.state !== 'ACTIVE_SESSION') throw new Error('No active session');
     // strict check: imported files allowed?
     if (this.mode === 'OWNER') throw new Error("Security Violation: Cannot import files in Owner Mode."); 
-
     this.notifyActivity(); 
 
     const newFiles: FileMetadata[] = [];
@@ -284,7 +330,7 @@ export class SessionManager extends EventEmitter {
     for (const src of sourcePaths) {
       try {
         const stats = await fs.stat(src);
-        const safeName = `${Date.now()}_${path.basename(src)}`; // Simple safe name, complex logic removed for brevity but could trigger guardrail if needed
+        const safeName = `${Date.now()}_${path.basename(src)}`; // Simple safe name
         const dest = path.join(this.sessionPath!, safeName);
         
         await fs.copy(src, dest);
@@ -292,7 +338,8 @@ export class SessionManager extends EventEmitter {
         const metadata: FileMetadata = { 
             name: safeName, 
             size: stats.size,
-            originalPath: src 
+            originalPath: src,
+            source: 'IMPORT'
         };
         newFiles.push(metadata);
         this.importedFiles.push(metadata);
@@ -317,7 +364,8 @@ export class SessionManager extends EventEmitter {
       totalSize: this.totalSize,
       fileCount: this.importedFiles.length,
       state: this.state,
-      mode: this.mode
+      mode: this.mode,
+      uploadUrl: this.uploadUrl
     };
   }
 }

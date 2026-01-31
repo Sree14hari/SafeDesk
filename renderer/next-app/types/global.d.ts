@@ -12,6 +12,7 @@ declare global {
       startTime: number | null;
       totalSize: number;
       fileCount: number;
+      uploadUrl?: string | null;
   }
 
   interface ResidueFile {

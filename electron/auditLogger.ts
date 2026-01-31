@@ -9,7 +9,9 @@ export type LogEventType =
     | 'WIPE_FAILURE' 
     | 'RESIDUE_CLEAN'
     | 'ACTION_BLOCKED'
-    | 'SYSTEM_ASSERTION_FAILURE';
+    | 'SYSTEM_ASSERTION_FAILURE'
+    | 'FILE_UPLOAD'
+    | 'USER_ACTION';
 
 export interface AuditEntry {
     timestamp: string; // ISO string for readability
@@ -58,13 +60,7 @@ export class AuditLogger {
         await this.writeLog('SESSION_START', `Imported ${count} files.`); 
         // Note: Re-using SESSION_START type or we can add IMPORT type, 
         // but prompt said "Logs must record: files imported (count only)".
-        // I will stick to usage as "INFO" or specific if needed.
-        // Let's correct usage: simple details string.
     }
-    
-    // Correction: Prompt asked for "Session started", "Files imported", "Session ended", etc.
-    // I should probably add specific file import logging or just aggregate it. 
-    // "Logs must record: Files imported (count only)"
     
     public async logFileImport(count: number) {
          await this.writeLog('SESSION_START', `Files imported batch size: ${count}`);
@@ -89,6 +85,10 @@ export class AuditLogger {
 
     public async logAssertionFailure(assertion: string) {
         await this.writeLog('SYSTEM_ASSERTION_FAILURE', `Internal assertion failed: ${assertion}`);
+    }
+    
+    public async logAction(action: string, details: string) {
+        await this.writeLog('USER_ACTION', `${action}: ${details}`);
     }
 
     public async getLogs(limit: number = 50): Promise<AuditEntry[]> {

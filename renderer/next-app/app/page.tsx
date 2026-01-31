@@ -15,7 +15,8 @@ import {
   FileText,
   Activity,
   Lock,
-  Search
+  Search,
+  Smartphone
 } from 'lucide-react';
 
 interface SessionInfo {
@@ -23,6 +24,7 @@ interface SessionInfo {
     startTime: number | null;
     totalSize: number;
     fileCount: number;
+    uploadUrl?: string | null;
 }
 interface FileMetadata {
   name: string;
@@ -361,6 +363,23 @@ export default function Home() {
                 <DashboardCard label="Files" value={sessionInfo.fileCount.toString()} icon={<FileText size={20}/>}/>
                 <DashboardCard label="Storage" value={formatBytes(sessionInfo.totalSize)} icon={<HardDrive size={20}/>} />
             </div>
+
+            {sessionInfo.uploadUrl && (
+                <div className="bh-card" style={{ display: 'flex', gap: '20px', alignItems: 'center', background: '#fafafa' }}>
+                    <div style={{ background: 'white', padding: '10px', borderRadius: '8px', border: '1px solid #ddd' }}>
+                        <img src={sessionInfo.uploadUrl} alt="Secure Upload QR" style={{ width: '120px', height: '120px', display: 'block' }} />
+                    </div>
+                    <div>
+                        <h3 style={{ margin: '0 0 8px 0', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+                            <Smartphone size={20} /> Secure Mobile Upload
+                        </h3>
+                        <p style={{ fontSize: '13px', color: '#555', maxWidth: '400px', margin: 0 }}>
+                            Scan this QR code to upload a file directly from your mobile device. 
+                            The link is valid for <b>one upload</b> only and expires immediately.
+                        </p>
+                    </div>
+                </div>
+            )}
 
             {/* Action Bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
