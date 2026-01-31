@@ -136,19 +136,15 @@ Return ONLY the JSON object, nothing else.`
 
             if (!response.ok) {
                 const errorBody = await response.text();
-                
-                // If OpenRouter returns 401 and we have Gemini key, switch and retry
-                if (response.status === 401 && this.currentProvider === 'openrouter' && this.switchToGemini()) {
-                    console.log('[GeminiPolicyService] OpenRouter 401 - Retrying with Gemini...');
-                    return this.getRecommendation(context); // Recursive retry with Gemini
+                console.error(`[GeminiPolicyService] OpenRouter API Error: ${response.status} ${response.statusText}`, errorBody);
+
+                // Fallback to Gemini on ANY OpenRouter error (4xx, 5xx, etc.)
+                if (this.currentProvider === 'openrouter' && this.switchToGemini()) {
+                    console.warn(`[GeminiPolicyService] OpenRouter failed with ${response.status}. Switching to Gemini fallback...`);
+                    return this.getRecommendation(context); // Recursive retry
                 }
                 
-                console.error(`[GeminiPolicyService] API Error Details:`, {
-                    status: response.status,
-                    statusText: response.statusText,
-                    body: errorBody
-                });
-                throw new Error(`${this.currentProvider} API error: ${response.status} ${response.statusText}`);
+                throw new Error(`OpenRouter API error: ${response.status}`);
             }
 
             const data = await response.json();
@@ -157,6 +153,14 @@ Return ONLY the JSON object, nothing else.`
             return this.parseAIResponse(text);
 
         } catch (error) {
+            console.error("[GeminiPolicyService] Primary Provider (OpenRouter) failed:", error);
+            
+            // Fallback on network/fetch errors
+            if (this.currentProvider === 'openrouter' && this.switchToGemini()) {
+                 console.warn(`[GeminiPolicyService] OpenRouter network error. Switching to Gemini fallback...`);
+                 return this.getRecommendation(context);
+            }
+
             const hasKey = this.openrouterKey || this.geminiKey;
             if (hasKey) {
                 console.error("[GeminiPolicyService] Error generating policy:", error);

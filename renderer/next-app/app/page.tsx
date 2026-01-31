@@ -449,11 +449,13 @@ export default function Home() {
                 <DashboardCard label={t('sessionId')} value={sessionInfo.id.split('_')[2] || '...'} icon={<Shield size={20}/>} />
                 <DashboardCard label={t('startedAt')} value={formatTime(sessionInfo.startTime)} icon={<Clock size={20}/>} />
                 <DashboardCard label={t('files')} value={sessionInfo.fileCount.toString()} icon={<FileText size={20}/>}/>
-                <DashboardCard 
-                    label={t('autoEndTimeout')}
-                    value={sessionInfo.currentTimeoutSeconds ? `${Math.floor(sessionInfo.currentTimeoutSeconds / 60)}m ${sessionInfo.currentTimeoutSeconds % 60}s` : '5m'} 
-                    icon={<AlertTriangle size={20}/>}
-                />
+                {sessionInfo.type !== 'TASK' && (
+                    <DashboardCard 
+                        label={t('autoEndTimeout')}
+                        value={sessionInfo.currentTimeoutSeconds ? `${Math.floor(sessionInfo.currentTimeoutSeconds / 60)}m ${sessionInfo.currentTimeoutSeconds % 60}s` : '5m'} 
+                        icon={<AlertTriangle size={20}/>}
+                    />
+                )}
                 <DashboardCard label={t('storage')} value={formatBytes(sessionInfo.totalSize)} icon={<HardDrive size={20}/>} />
             </div>
 
@@ -549,7 +551,7 @@ export default function Home() {
       </main>
 
         {/* Floating AI Safety Button */}
-        {sessionInfo.id && sessionInfo.riskLevel && (
+        {sessionInfo.id && sessionInfo.riskLevel && sessionInfo.type !== 'TASK' && (
            <div style={{
                position: 'fixed',
                bottom: '24px',
