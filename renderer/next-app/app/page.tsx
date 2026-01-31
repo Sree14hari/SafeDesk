@@ -27,6 +27,9 @@ interface SessionInfo {
     fileCount: number;
     uploadUrl?: string | null;
     type?: 'PRINT' | 'TASK';
+    riskLevel?: "low" | "medium" | "high";
+    aiPolicyReason?: string;
+    currentTimeoutSeconds?: number;
 }
 interface FileMetadata {
   name: string;
@@ -222,7 +225,9 @@ export default function Home() {
             </div>
             <div>
                 <h1 className="bh-title">SecureEngine</h1>
-                <div className="bh-status-pill">Disposal Mode</div>
+                <div style={{display:'flex', gap:'8px'}}>
+                    <div className="bh-status-pill">Disposal Mode</div>
+                </div>
             </div>
         </div>
         
@@ -232,29 +237,35 @@ export default function Home() {
                  {status}
              </div>
 
-            {sessionInfo.id && (
-                <>
+
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 {sessionInfo.type === 'PRINT' && (
-                    <button className="bh-btn bh-btn-action" onClick={handleScan}>
-                        <ScanLine size={16} /> Scan Paper
+                     <button className="bh-btn bh-btn-action" onClick={handleScan}>
+                         <ScanLine size={16} /> Scan Paper
+                     </button>
+                 )}
+                 {sessionInfo.type === 'TASK' && (
+                      <button className="bh-btn bh-btn-action" onClick={handleLaunchBrowser} style={{background: '#2196F3'}}>
+                         <Globe size={16} /> Open Secure Browser
+                     </button>
+                 )}
+                 
+                {sessionInfo.id && (
+                    <>
+                    <div style={{width:'2px', height:'30px', background:'black'}}></div>
+                    <button className="bh-btn bh-btn-danger" onClick={handleEndSession}>
+                        <Trash2 size={16} /> Destroy Session
                     </button>
+                    </>
                 )}
-                {sessionInfo.type === 'TASK' && (
-                     <button className="bh-btn bh-btn-action" onClick={handleLaunchBrowser} style={{background: '#2196F3'}}>
-                        <Globe size={16} /> Open Secure Browser
-                    </button>
-                )}
-                <div style={{width:'2px', height:'30px', background:'black'}}></div>
-                <button className="bh-btn bh-btn-danger" onClick={handleEndSession}>
-                    <Trash2 size={16} /> Destroy Session
-                </button>
-                </>
-            )}
         </div>
       </header>
 
       {/* Main Content */}
       <main style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
+
         
         {/* Trust Banner */}
         <div className="bh-banner">
@@ -435,6 +446,11 @@ export default function Home() {
                 <DashboardCard label="Session ID" value={sessionInfo.id.split('_')[2] || '...'} icon={<Shield size={20}/>} />
                 <DashboardCard label="Started At" value={formatTime(sessionInfo.startTime)} icon={<Clock size={20}/>} />
                 <DashboardCard label="Files" value={sessionInfo.fileCount.toString()} icon={<FileText size={20}/>}/>
+                <DashboardCard 
+                    label="Auto-End Timeout" 
+                    value={sessionInfo.currentTimeoutSeconds ? `${Math.floor(sessionInfo.currentTimeoutSeconds / 60)}m ${sessionInfo.currentTimeoutSeconds % 60}s` : '5m'} 
+                    icon={<AlertTriangle size={20}/>}
+                />
                 <DashboardCard label="Storage" value={formatBytes(sessionInfo.totalSize)} icon={<HardDrive size={20}/>} />
             </div>
 
@@ -529,6 +545,86 @@ export default function Home() {
           </div>
         )}
       </main>
+
+        {/* Floating AI Safety Button */}
+        {sessionInfo.id && sessionInfo.riskLevel && (
+           <div style={{
+               position: 'fixed',
+               bottom: '24px',
+               right: '24px',
+               zIndex: 9999,
+               display: 'flex',
+               flexDirection: 'column',
+               alignItems: 'flex-end',
+               gap: '12px'
+           }}>
+               {/* Bubble (Top) */}
+               {sessionInfo.aiPolicyReason && (
+                    <div style={{
+                        background: 'white',
+                        color: 'black',
+                        padding: '8px 12px',
+                        borderRadius: '12px',
+                        border: '1.5px solid black',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        boxShadow: '3px 3px 0px rgba(0,0,0,0.15)',
+                        maxWidth: '220px',
+                        marginBottom: '4px',
+                        position: 'relative'
+                    }}>
+                       "{sessionInfo.aiPolicyReason}"
+                       {/* Triangle pointing down to button */}
+                        <div style={{
+                            position: 'absolute',
+                            bottom: '-6px',
+                            right: '18px',
+                            width: 0,
+                            height: 0,
+                            borderLeft: '6px solid transparent',
+                            borderRight: '6px solid transparent',
+                            borderTop: '6px solid black'
+                        }} />
+                         <div style={{
+                            position: 'absolute',
+                            bottom: '-4px',
+                            right: '19.5px',
+                            width: 0,
+                            height: 0,
+                            borderLeft: '4.5px solid transparent',
+                            borderRight: '4.5px solid transparent',
+                            borderTop: '4.5px solid white'
+                        }} />
+                   </div>
+               )}
+
+               {/* Button (Bottom) */}
+                <div style={{
+                    height: '40px',
+                    padding: '0 16px',
+                    borderRadius: '20px',
+                    background: sessionInfo.riskLevel === 'high' ? 'var(--bh-red)' : sessionInfo.riskLevel === 'medium' ? 'var(--bh-yellow)' : 'var(--bh-blue)',
+                    color: sessionInfo.riskLevel === 'medium' ? 'black' : 'white',
+                    border: '1.5px solid black',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontWeight: 700,
+                    fontSize: '11px',
+                    boxShadow: '3px 3px 0px rgba(0,0,0,0.2)',
+                    cursor: 'default'
+                }}>
+                    <div style={{
+                        width: '8px',
+                        height: '8px', 
+                        borderRadius: '50%', 
+                        background: sessionInfo.riskLevel === 'medium' ? 'black' : 'white',
+                        animation: 'pulse 2s infinite'
+                    }} />
+                    AI: {sessionInfo.riskLevel.toUpperCase()}
+                </div>
+           </div>
+        )}
     </div>
   );
 }
