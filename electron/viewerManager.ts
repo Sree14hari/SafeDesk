@@ -32,9 +32,34 @@ export class ViewerManager {
             // CRITICAL: Disable the native menu bar to prevent "Save As"
             viewerWindow.setMenu(null);
             
-            // CRITICAL: Disable Context Menu (Right Click)
-            viewerWindow.webContents.on('context-menu', (e) => {
-                e.preventDefault();
+            // Security Hardening: Block Downloads & New Windows
+            viewerWindow.webContents.session.on('will-download', (event) => {
+                event.preventDefault();
+                console.warn('[ViewerManager] Blocked download attempt in secure viewer');
+            });
+            
+            viewerWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+             // Inject strict security policy script
+            const securityScript = `
+                document.addEventListener('contextmenu', event => event.preventDefault());
+                document.addEventListener('keydown', event => {
+                    if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'p' || event.key === 'c')) {
+                        event.preventDefault();
+                        console.log('Blocked secure action key');
+                    }
+                });
+                document.addEventListener('dragstart', event => event.preventDefault());
+                document.addEventListener('drop', event => event.preventDefault());
+                
+                // Hide any PDF toolbar controls if possible (CSS override)
+                const style = document.createElement('style');
+                style.innerHTML = '#toolbar { display: none !important; }'; // Common PDFjs toolbar ID
+                document.head.appendChild(style);
+            `;
+            
+            viewerWindow.webContents.on('dom-ready', () => {
+                 viewerWindow?.webContents.executeJavaScript(securityScript).catch(() => {});
             });
 
             const windowId = viewerWindow.id;
