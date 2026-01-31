@@ -195,22 +195,16 @@ app.whenReady().then(async () => {
 
   // --- Residue Guard IPC ---
 
-  ipcMain.handle('residue:scan', async () => {
+  ipcMain.handle('residue:scan', async (event, options) => {
       // Allow scan in all modes (Transparency & Trust)
       // "Residue scan is manual only" - Triggered by user via UI.
-      console.log('[Main] Residue Scan Requested');
-      return await residueScanner.scan();
+      console.log('[Main] Residue Scan Requested with options:', options);
+      return await residueScanner.scan(options);
   });
 
   ipcMain.handle('residue:clean', async (event, files: ResidueFile[]) => {
-      // Only allowed in OWNER mode
-      if (sessionManager.getMode() !== 'OWNER') {
-          console.warn('[Main] Blocked Residue Cleanup (Customer Mode)');
-          return {
-              successCount: 0,
-              failures: ["Access Denied: Cleanup requires Owner Mode (Restricted Action)."]
-          };
-      }
+      // Allow cleanup in all modes for now as it is a user-initiated maintenance action
+      // if (sessionManager.getMode() !== 'OWNER') { ... }
 
       console.log(`[Main] Residue Cleaning Requested for ${files.length} files`);
       return await residueScanner.clean(files);

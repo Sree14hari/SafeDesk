@@ -50,6 +50,12 @@ export default function Home() {
   const [residueFiles, setResidueFiles] = useState<ResidueFile[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
   const [cleanupReport, setCleanupReport] = useState<string | null>(null);
+  const [scanOptions, setScanOptions] = useState({
+      desktop: true,
+      downloads: true,
+      documents: false,
+      pictures: false
+  });
 
   useEffect(() => {
     if (window.electronAPI) {
@@ -135,7 +141,7 @@ export default function Home() {
       if (!window.electronAPI) return;
       setIsProcessing(true);
       try {
-          const report = await window.electronAPI.scanResidue();
+          const report = await window.electronAPI.scanResidue(scanOptions);
           setResidueFiles(report.foundFiles);
           setHasScanned(true);
           setCleanupReport(null);
@@ -175,6 +181,10 @@ export default function Home() {
   const formatTime = (ts: number | null) => {
       if (!ts) return '-';
       return new Date(ts).toLocaleTimeString();
+  };
+
+  const toggleOption = (key: keyof typeof scanOptions) => {
+      setScanOptions(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   return (
@@ -245,78 +255,103 @@ export default function Home() {
             </div>
         )}
 
-        {/* Phase 5: Residue Guard Section */}
-        {!sessionInfo.id && <div className="bh-card" style={{ marginBottom: '30px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', textTransform:'uppercase' }}>
-                    <Search size={20} /> Data Residue Guard
-                </h3>
-                <button 
-                    onClick={handleResidueScan}
-                    disabled={isProcessing}
-                    className="bh-btn bh-btn-white">
-                    {isProcessing ? 'Scanning...' : 'Scan Desktop & Downloads'}
-                </button>
-            </div>
-            
-            {cleanupReport && (
-                <div style={{ padding: '10px', background: '#e8f5e9', border: '2px solid black', marginBottom: '10px', fontWeight: 600 }}>
-                    {cleanupReport}
+        {/* Phase 5 & 6: IDLE Screen Layout */}
+        {!sessionInfo.id && (
+            <div className="bh-grid" style={{ alignItems: 'start', gridTemplateColumns: 'minmax(300px, 1.5fr) minmax(300px, 1fr)' }}>
+                
+                {/* 1. Start Disposition Session (Primary Action) */}
+                <div className="bh-card" style={{ textAlign: 'center', padding: '40px' }}>
+                    <div style={{width:'80px', height:'80px', background:'var(--bh-black)', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                        <Shield size={40} color="white" />
+                    </div>
+                    <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>Start Disposition Session</h2>
+                    <p style={{ marginBottom: '30px' }}>Securely review, print, and destroy sensitive documents in an isolated environment.</p>
+                    <button 
+                        onClick={handleStartSession}
+                        className="bh-btn bh-btn-primary"
+                        style={{ width: '100%', justifyContent: 'center' }}
+                        disabled={wipeFailures.length > 0} 
+                    >
+                        Start Secure Session
+                    </button>
                 </div>
-            )}
 
-            {hasScanned && (
-                <div>
-                    {residueFiles.length === 0 ? (
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'green', fontWeight: 700 }}>
-                             <CheckCircle size={24} />
-                             <span>SYSTEM CLEAN. NO RISK FILES DETECTED.</span>
-                         </div>
-                    ) : (
-                        <div style={{ background: '#fff', border: '2px solid var(--bh-red)', padding: '15px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--bh-red)', marginBottom: '10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 800, textTransform:'uppercase' }}>
-                                    <AlertTriangle size={20} /> {residueFiles.length} Risk Files Found
+                {/* 2. Residue Guard (Secondary Action) */}
+                <div className="bh-card">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                        <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', textTransform:'uppercase', fontSize: '16px' }}>
+                            <Search size={20} /> Data Residue Guard
+                        </h3>
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>Scan system locations for sensitive files left behind.</p>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={scanOptions.desktop} onChange={() => toggleOption('desktop')} /> Desktop
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={scanOptions.downloads} onChange={() => toggleOption('downloads')} /> Downloads
+                        </label>
+                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={scanOptions.documents} onChange={() => toggleOption('documents')} /> Documents
+                        </label>
+                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={scanOptions.pictures} onChange={() => toggleOption('pictures')} /> Pictures
+                        </label>
+                    </div>
+
+                    <button 
+                        onClick={handleResidueScan}
+                        disabled={isProcessing}
+                        className="bh-btn bh-btn-white"
+                        style={{ width: '100%', justifyContent: 'center', marginBottom: '20px' }}
+                    >
+                        {isProcessing ? 'Scanning...' : 'Start Scan'}
+                    </button>
+                    
+                    {cleanupReport && (
+                        <div style={{ padding: '10px', background: '#e8f5e9', border: '1px solid #c8e6c9', borderRadius: 'var(--radius)', marginBottom: '10px', fontWeight: 600, fontSize: '13px', color: 'green' }}>
+                            {cleanupReport}
+                        </div>
+                    )}
+
+                    {hasScanned && (
+                        <div>
+                            {residueFiles.length === 0 ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'green', fontWeight: 700 }}>
+                                    <CheckCircle size={24} />
+                                    <span>SYSTEM CLEAN.</span>
                                 </div>
-                                <button
-                                    onClick={handleResidueCleanup}
-                                    className="bh-btn bh-btn-danger"
-                                >
-                                    CLEANUP ALL
-                                </button>
-                            </div>
-                            <div style={{ fontSize: '12px', maxHeight: '150px', overflowY: 'auto' }}>
-                                <ul style={{ margin: 0, paddingLeft: '20px', fontFamily:'monospace' }}>
-                                    {residueFiles.map((f, i) => (
-                                        <li key={i}>{f.name} <span style={{color:'#666'}}>({f.location})</span></li>
-                                    ))}
-                                </ul>
-                            </div>
+                            ) : (
+                                <div style={{ background: '#fff', border: '1px solid var(--bh-red)', borderRadius: 'var(--radius)', padding: '15px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--bh-red)', marginBottom: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, textTransform:'uppercase', fontSize: '13px' }}>
+                                            <AlertTriangle size={16} /> {residueFiles.length} Risks Found
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '12px', maxHeight: '150px', overflowY: 'auto', marginBottom: '10px' }}>
+                                        <ul style={{ margin: 0, paddingLeft: '20px', fontFamily:'monospace' }}>
+                                            {residueFiles.map((f, i) => (
+                                                <li key={i}>{f.name}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    <button
+                                        onClick={handleResidueCleanup}
+                                        className="bh-btn bh-btn-danger"
+                                        style={{ width: '100%', justifyContent: 'center', fontSize: '12px' }}
+                                    >
+                                        CLEANUP ALL
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
-            )}
-        </div>}
-
-        {!sessionInfo.id ? (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 0' }}>
-            <div className="bh-card" style={{ textAlign: 'center', maxWidth: '500px' }}>
-                <div style={{width:'80px', height:'80px', background:'var(--bh-black)', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <Shield size={40} color="white" />
-                </div>
-                <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>Start Disposition Session</h2>
-                <p style={{ marginBottom: '30px' }}>Securely review, print, and destroy sensitive documents in an isolated environment.</p>
-                <button 
-                  onClick={handleStartSession}
-                  className="bh-btn bh-btn-primary"
-                  style={{ width: '100%', justifyContent: 'center' }}
-                  disabled={wipeFailures.length > 0} 
-                >
-                  Start Secure Session
-                </button>
             </div>
-          </div>
-        ) : (
+        )}
+
+        {sessionInfo.id && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Metadata Dashboard */}

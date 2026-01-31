@@ -39,7 +39,7 @@ declare global {
       previewFile: (fileName: string) => void;
       triggerScan: () => void;
       
-      scanResidue: () => Promise<InspectionReport>;
+      scanResidue: (options?: any) => Promise<InspectionReport>;
       cleanResidue: (files: ResidueFile[]) => Promise<CleanupReport>;
       
       onSessionStatus: (callback: (event: any, value: string) => void) => void;

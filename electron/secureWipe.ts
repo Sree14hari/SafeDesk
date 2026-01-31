@@ -1,9 +1,13 @@
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 
-const RETRY_ATTEMPTS = 10; // Increased
-const RETRY_DELAY_MS = 300;
+const execPromise = promisify(exec);
+
+const RETRY_ATTEMPTS = 10;
+const RETRY_DELAY_MS = 500; // Increased delay
 
 export interface WipeResult {
     success: boolean;
@@ -37,11 +41,20 @@ export async function secureDeleteFile(filePath: string): Promise<WipeResult> {
     if (!await fs.pathExists(filePath)) return { success: true };
 
     try {
-        // 0. Force Permissions (Remove Read-Only)
+        // 0. Force Permissions (Windows: attrib; POSIX: chmod)
+        if (process.platform === 'win32') {
+            try {
+                // Clear Read-Only, Hidden, System attributes
+                await execPromise(`attrib -r -h -s "${filePath}"`);
+            } catch (e) {
+                console.warn('[SecureWipe] Failed to clear attributes:', e);
+            }
+        }
+        
         try {
             await fs.chmod(filePath, 0o666);
         } catch (e) {
-            // Ignore chmod errors, might not be relevant on Windows or not owned
+            // Ignore chmod errors
         }
 
         const stats = await fs.stat(filePath);
@@ -91,8 +104,15 @@ export async function secureDeleteFile(filePath: string): Promise<WipeResult> {
             await withRetry(() => fs.remove(filePath), 'Force Remove');
             return { success: true };
         } catch (e: any) {
-            console.error('[SecureWipe] Absolute failure to remove:', filePath, e);
-            return { success: false, error: e.message || String(e) };
+            console.error('[SecureWipe] fs.remove failed, trying PowerShell Force Delete:', filePath);
+            try {
+                // Final Resort: PowerShell Force Delete
+                await execPromise(`powershell -Command "Remove-Item -LiteralPath '${filePath}' -Force"`);
+                return { success: true };
+            } catch (psError: any) {
+                 console.error('[SecureWipe] PowerShell delete failed:', psError);
+                 return { success: false, error: `${e.message} (PowerShell: ${psError.message})` };
+            }
         }
     }
 }

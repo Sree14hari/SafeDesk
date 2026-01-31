@@ -6,7 +6,7 @@ import { secureDeleteFile, WipeResult } from './secureWipe';
 export interface ResidueFile {
     path: string;
     name: string;
-    location: 'Desktop' | 'Downloads';
+    location: string;
 }
 
 export interface InspectionReport {
@@ -17,6 +17,13 @@ export interface InspectionReport {
 export interface CleanupReport {
     successCount: number;
     failures: string[];
+}
+
+export interface ScanOptions {
+    desktop: boolean;
+    downloads: boolean;
+    documents: boolean;
+    pictures: boolean;
 }
 
 const TARGET_EXTENSIONS = ['.pdf', '.jpg', '.png', '.jpeg', '.docx', '.xlsx'];
@@ -30,20 +37,38 @@ export class ResidueScanner {
 
     private desktopPath: string;
     private downloadsPath: string;
+    private documentsPath: string;
+    private picturesPath: string;
 
     constructor() {
         this.desktopPath = app.getPath('desktop');
         this.downloadsPath = app.getPath('downloads');
+        this.documentsPath = app.getPath('documents');
+        this.picturesPath = app.getPath('pictures');
     }
 
-    public async scan(): Promise<InspectionReport> {
+    public async scan(options: ScanOptions = { desktop: true, downloads: true, documents: false, pictures: false }): Promise<InspectionReport> {
         const foundFiles: ResidueFile[] = [];
 
-        console.log(`[ResidueScanner] Scanning Desktop: ${this.desktopPath}`);
-        foundFiles.push(...await this.scanDirectory(this.desktopPath, 'Desktop'));
+        if (options.desktop) {
+            console.log(`[ResidueScanner] Scanning Desktop: ${this.desktopPath}`);
+            foundFiles.push(...await this.scanDirectory(this.desktopPath, 'Desktop'));
+        }
 
-        console.log(`[ResidueScanner] Scanning Downloads: ${this.downloadsPath}`);
-        foundFiles.push(...await this.scanDirectory(this.downloadsPath, 'Downloads'));
+        if (options.downloads) {
+            console.log(`[ResidueScanner] Scanning Downloads: ${this.downloadsPath}`);
+            foundFiles.push(...await this.scanDirectory(this.downloadsPath, 'Downloads'));
+        }
+
+        if (options.documents) {
+            console.log(`[ResidueScanner] Scanning Documents: ${this.documentsPath}`);
+            foundFiles.push(...await this.scanDirectory(this.documentsPath, 'Documents'));
+        }
+
+        if (options.pictures) {
+            console.log(`[ResidueScanner] Scanning Pictures: ${this.picturesPath}`);
+            foundFiles.push(...await this.scanDirectory(this.picturesPath, 'Pictures'));
+        }
 
         return {
             timestamp: Date.now(),
@@ -51,7 +76,7 @@ export class ResidueScanner {
         };
     }
 
-    private async scanDirectory(dirPath: string, location: 'Desktop' | 'Downloads'): Promise<ResidueFile[]> {
+    private async scanDirectory(dirPath: string, location: string): Promise<ResidueFile[]> {
         const results: ResidueFile[] = [];
         try {
             if (!await fs.exists(dirPath)) return [];
