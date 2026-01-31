@@ -1,5 +1,22 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { 
+  Shield, 
+  Trash2, 
+  FileUp, 
+  ScanLine, 
+  Printer, 
+  Eye, 
+  AlertTriangle, 
+  CheckCircle, 
+  XCircle, 
+  HardDrive, 
+  Clock, 
+  FileText,
+  Activity,
+  Lock,
+  Search
+} from 'lucide-react';
 
 interface SessionInfo {
     id: string | null;
@@ -161,28 +178,34 @@ export default function Home() {
   };
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif', height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#fafafa' }}>
+    <div className="bh-container">
       
       {/* Header */}
-      <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #eaeaea', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '24px', height: '24px', background: sessionInfo.id ? '#d32f2f' : '#ccc', borderRadius: '50%' }}></div>
-            <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>SecureEngine <span style={{fontSize:'12px', fontWeight:'normal', background:'#eee', padding:'2px 6px', borderRadius:'4px'}}>DISPOSAL MODE</span></h1>
+      <header className="bh-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '40px', height: '40px', background: sessionInfo.id ? 'var(--bh-red)' : 'var(--bh-black)', borderRadius: '50%', display:'flex', alignItems:'center', justifyContent:'center', border: '2px solid black' }}>
+                <Shield color="white" size={20} />
+            </div>
+            <div>
+                <h1 className="bh-title">SecureEngine</h1>
+                <div className="bh-status-pill">Disposal Mode</div>
+            </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div style={{ fontSize: '14px', color: '#666' }}>Status: <strong>{status}</strong></div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+             <div style={{fontFamily: 'monospace', fontWeight: 600}}>
+                 <Activity size={14} style={{marginRight: 6, verticalAlign: 'middle'}}/>
+                 {status}
+             </div>
+
             {sessionInfo.id && (
                 <>
-                <button 
-                    onClick={handleScan}
-                    style={{ background: '#0070f3', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', display:'flex', alignItems:'center', gap:'5px' }}>
-                    <span>📄</span> SCAN DOCUMENT
+                <button className="bh-btn bh-btn-action" onClick={handleScan}>
+                    <ScanLine size={16} /> Scan Paper
                 </button>
-                <div style={{height:'20px', borderLeft:'1px solid #ddd'}}></div>
-                <button 
-                    onClick={handleEndSession} 
-                    style={{ background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                    DESTROY SESSION & FILES
+                <div style={{width:'2px', height:'30px', background:'black'}}></div>
+                <button className="bh-btn bh-btn-danger" onClick={handleEndSession}>
+                    <Trash2 size={16} /> Destroy Session
                 </button>
                 </>
             )}
@@ -190,54 +213,54 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box', overflowY: 'auto' }}>
+      <main style={{ flex: 1, padding: '0 20px', overflowY: 'auto' }}>
         
         {/* Trust Banner */}
-        <div style={{ backgroundColor: '#fff3cd', border: '1px solid #ffeeba', padding: '12px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', color: '#856404' }}>
-            <span style={{ fontSize: '18px' }}>⚠️</span>
-            <span style={{ fontSize: '14px', fontWeight: 600 }}>Secure Disposition: Any file imported here will be WIPED from your computer when the session ends.</span>
+        <div className="bh-banner">
+            <Lock size={24} />
+            <span style={{ fontSize: '14px' }}>SECURE DISPOSITION: All files imported here will be DESTROYED from source upon session completion.</span>
         </div>
 
         {wipeFailures.length > 0 && (
-            <div style={{ marginBottom: '20px', padding: '20px', background: '#ffebee', color: '#b71c1c', borderRadius: '8px', border: '1px solid #ffcdd2' }}>
-                <h3 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span>❌</span> PARTIAL FAILURE - FILES REMAINING
+            <div className="bh-card" style={{ marginBottom: '24px', borderLeft: '8px solid var(--bh-red)' }}>
+                <h3 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--bh-red)' }}>
+                    <AlertTriangle /> PARTIAL FAILURE - FILES REMAINING
                 </h3>
-                <p style={{ margin: '0 0 10px 0' }}>The following files could not be destroyed (likely locked by another application):</p>
-                <ul style={{ margin: 0, paddingLeft: '20px', fontFamily: 'monospace', fontSize: '13px' }}>
+                <p>The following files could not be destroyed (likely locked by another application):</p>
+                <ul style={{ fontFamily: 'monospace' }}>
                     {wipeFailures.map((fail, idx) => (
-                        <li key={idx} style={{ marginBottom: '4px' }}>{fail}</li>
+                        <li key={idx}>{fail}</li>
                     ))}
                 </ul>
             </div>
         )}
 
         {endReason && !sessionInfo.id && wipeFailures.length === 0 && (
-            <div style={{ marginBottom: '20px', padding: '20px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '8px', border: '1px solid #c8e6c9', display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <span style={{ fontSize: '24px' }}>🗑️</span>
+            <div className="bh-card" style={{ marginBottom: '24px', borderLeft: '8px solid var(--bh-green)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <CheckCircle size={40} color="green" />
                 <div>
-                    <h3 style={{ margin: '0 0 5px 0' }}>Destruction Complete</h3>
+                    <h3 style={{ margin: '0 0 5px 0' }}>DESTRUCTION COMPLETE</h3>
                     <p style={{ margin: 0 }}>{endReason}</p>
                 </div>
             </div>
         )}
 
         {/* Phase 5: Residue Guard Section */}
-        {!sessionInfo.id && <div style={{ marginBottom: '30px', padding: '20px', background: '#f8f9fa', border: '1px solid #e9ecef', borderRadius: '8px' }}>
+        {!sessionInfo.id && <div className="bh-card" style={{ marginBottom: '30px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span>🛡️</span> Data Residue Guard
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', textTransform:'uppercase' }}>
+                    <Search size={20} /> Data Residue Guard
                 </h3>
                 <button 
                     onClick={handleResidueScan}
                     disabled={isProcessing}
-                    style={{ background: '#fff', border: '1px solid #ccc', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                    className="bh-btn bh-btn-white">
                     {isProcessing ? 'Scanning...' : 'Scan Desktop & Downloads'}
                 </button>
             </div>
             
             {cleanupReport && (
-                <div style={{ padding: '10px', background: '#e8f5e9', color: '#2e7d32', borderRadius: '4px', fontSize: '13px', marginBottom: '10px' }}>
+                <div style={{ padding: '10px', background: '#e8f5e9', border: '2px solid black', marginBottom: '10px', fontWeight: 600 }}>
                     {cleanupReport}
                 </div>
             )}
@@ -245,27 +268,27 @@ export default function Home() {
             {hasScanned && (
                 <div>
                     {residueFiles.length === 0 ? (
-                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#2e7d32' }}>
-                             <span style={{ fontSize: '24px' }}>✅</span>
-                             <span>System Clean. No obvious high-risk files detected.</span>
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'green', fontWeight: 700 }}>
+                             <CheckCircle size={24} />
+                             <span>SYSTEM CLEAN. NO RISK FILES DETECTED.</span>
                          </div>
                     ) : (
-                        <div style={{ background: '#fff', border: '1px solid #ffcdd2', borderRadius: '8px', padding: '15px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#b71c1c', marginBottom: '10px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 600 }}>
-                                    <span>⚠️</span> {residueFiles.length} Potential Risk Files Found
+                        <div style={{ background: '#fff', border: '2px solid var(--bh-red)', padding: '15px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--bh-red)', marginBottom: '10px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 800, textTransform:'uppercase' }}>
+                                    <AlertTriangle size={20} /> {residueFiles.length} Risk Files Found
                                 </div>
                                 <button
                                     onClick={handleResidueCleanup}
-                                    style={{ background: '#d32f2f', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
+                                    className="bh-btn bh-btn-danger"
                                 >
-                                    SECURE CLEANUP ALL
+                                    CLEANUP ALL
                                 </button>
                             </div>
-                            <div style={{ fontSize: '12px', color: '#666', maxHeight: '100px', overflowY: 'auto' }}>
-                                <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                            <div style={{ fontSize: '12px', maxHeight: '150px', overflowY: 'auto' }}>
+                                <ul style={{ margin: 0, paddingLeft: '20px', fontFamily:'monospace' }}>
                                     {residueFiles.map((f, i) => (
-                                        <li key={i}>{f.name} <span style={{color:'#999'}}>({f.location})</span></li>
+                                        <li key={i}>{f.name} <span style={{color:'#666'}}>({f.location})</span></li>
                                     ))}
                                 </ul>
                             </div>
@@ -276,24 +299,17 @@ export default function Home() {
         </div>}
 
         {!sessionInfo.id ? (
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
-            <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', maxWidth: '400px', borderTop: '4px solid #111' }}>
-                <h2 style={{ marginTop: 0 }}>Start Disposition Session</h2>
-                <p style={{ color: '#666', marginBottom: '30px' }}>Securely review, print, scan, and destroy sensitive documents.</p>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '60px 0' }}>
+            <div className="bh-card" style={{ textAlign: 'center', maxWidth: '500px' }}>
+                <div style={{width:'80px', height:'80px', background:'var(--bh-black)', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <Shield size={40} color="white" />
+                </div>
+                <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>Start Disposition Session</h2>
+                <p style={{ marginBottom: '30px' }}>Securely review, print, and destroy sensitive documents in an isolated environment.</p>
                 <button 
                   onClick={handleStartSession}
-                  style={{
-                    padding: '14px 28px',
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    backgroundColor: '#111',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    width: '100%',
-                    transition: 'opacity 0.2s'
-                  }}
+                  className="bh-btn bh-btn-primary"
+                  style={{ width: '100%', justifyContent: 'center' }}
                   disabled={wipeFailures.length > 0} 
                 >
                   Start Secure Session
@@ -301,95 +317,78 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             
             {/* Metadata Dashboard */}
-            <div style={{ display: 'flex', gap: '20px' }}>
-                <DashboardCard label="Session ID" value={sessionInfo.id.split('_')[2] || '...'} sub={sessionInfo.id} />
-                <DashboardCard label="Started At" value={formatTime(sessionInfo.startTime)} />
-                <DashboardCard label="Files" value={sessionInfo.fileCount.toString()} />
-                <DashboardCard label="Total Storage" value={formatBytes(sessionInfo.totalSize)} />
+            <div className="bh-grid">
+                <DashboardCard label="Session ID" value={sessionInfo.id.split('_')[2] || '...'} icon={<Shield size={20}/>} />
+                <DashboardCard label="Started At" value={formatTime(sessionInfo.startTime)} icon={<Clock size={20}/>} />
+                <DashboardCard label="Files" value={sessionInfo.fileCount.toString()} icon={<FileText size={20}/>}/>
+                <DashboardCard label="Storage" value={formatBytes(sessionInfo.totalSize)} icon={<HardDrive size={20}/>} />
             </div>
 
             {/* Action Bar */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Tracking for Destruction</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', textTransform:'uppercase', fontWeight: 800 }}>Tracking for Destruction</h2>
               <button 
                 onClick={handleImport}
                 disabled={isProcessing}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  cursor: isProcessing ? 'not-allowed' : 'pointer',
-                  backgroundColor: isProcessing ? '#f0f0f0' : '#0070f3',
-                  color: isProcessing ? '#999' : 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
+                className="bh-btn bh-btn-primary"
               >
-                {isProcessing ? 'Processing...' : '+ Add Files to Destroy'}
+                <FileUp size={16} /> {isProcessing ? 'Processing...' : 'Add Files'}
               </button>
             </div>
 
             {/* File List */}
-            <div style={{ flex: 1, background: '#fff', borderRadius: '8px', border: '1px solid #eaeaea', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '12px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', fontSize: '12px', fontWeight: 600, color: '#666', display: 'flex' }}>
+            <div className="bh-card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div style={{ padding: '16px', borderBottom: '2px solid black', background: '#eee', fontSize: '12px', fontWeight: 800, display: 'flex' }}>
                   <div style={{ flex: 1 }}>FILE</div>
-                  <div style={{ width: '100px' }}>STATUS</div>
-                  <div style={{ width: '120px', textAlign:'right' }}>ACTIONS</div>
+                  <div style={{ width: '150px' }}>STATUS</div>
+                  <div style={{ width: '100px', textAlign:'right' }}>ACTIONS</div>
               </div>
               
-              <div style={{ overflowY: 'auto', flex: 1 }}>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {files.length === 0 ? (
-                    <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-                      <p>No files tracked.</p>
-                      <p style={{ fontSize: '13px' }}>Import or Scan files to begin.</p>
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#999' }}>
+                      <p style={{fontWeight: 600}}>NO FILES TRACKED</p>
                     </div>
                   ) : (
-                     <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                     <div>
                        {files.map((file, idx) => (
-                         <li key={idx} style={{ 
-                           padding: '10px 20px', 
-                           borderBottom: '1px solid #f5f5f5', 
-                           display: 'flex', 
-                           justifyContent: 'space-between',
-                           alignItems: 'center',
-                           fontSize: '14px'
-                         }}>
-                           <div style={{flex:1, display:'flex', flexDirection:'column'}}>
-                               <span style={{ fontWeight: 500, color: '#333' }}>{file.name}</span>
-                               <span style={{ fontSize:'11px', color:'#999' }}>{formatBytes(file.size)}</span>
+                         <div key={idx} className="bh-list-item">
+                           <div style={{flex:1, display:'flex', alignItems: 'center', gap: '12px'}}>
+                               <FileText size={24} />
+                               <div>
+                                   <div style={{ fontWeight: 700 }}>{file.name}</div>
+                                   <div style={{ fontSize:'12px', color:'#555', fontFamily: 'monospace' }}>{formatBytes(file.size)}</div>
+                               </div>
                            </div>
                            
-                           <div style={{ width: '100px' }}>
+                           <div style={{ width: '150px' }}>
                                {file.originalPath ? 
-                                    <span style={{ color: '#d32f2f', fontSize:'10px', border:'1px solid #d32f2f', padding:'1px 4px', borderRadius:'3px' }}>SOURCES MATCHED</span>
+                                    <span style={{ fontSize:'10px', background:'var(--bh-red)', color:'white', padding:'4px 6px', fontWeight: 700 }}>SOURCE MATCHED</span>
                                     : 
-                                    <span style={{ color: '#2e7d32', fontSize:'10px', border:'1px solid #2e7d32', padding:'1px 4px', borderRadius:'3px' }}>SESSION GENERATED</span>
+                                    <span style={{ fontSize:'10px', background:'var(--bh-blue)', color:'white', padding:'4px 6px', fontWeight: 700 }}>SESSION ONLY</span>
                                 }
                            </div>
                            
-                           <div style={{ width: '120px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                           <div style={{ width: '100px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                <button 
                                 onClick={() => handlePreview(file.name)}
-                                title="Secure Preview"
-                                style={{ background:'none', border:'1px solid #ddd', borderRadius:'4px', cursor:'pointer', padding:'4px 8px' }}>
-                                   👁️
+                                title="View"
+                                className="bh-btn bh-btn-white" style={{padding: '6px'}}>
+                                   <Eye size={16} />
                                </button>
                                <button 
                                 onClick={() => handlePrint(file.name)}
-                                title="Secure Print"
-                                style={{ background:'none', border:'1px solid #ddd', borderRadius:'4px', cursor:'pointer', padding:'4px 8px' }}>
-                                   🖨️
+                                title="Print"
+                                className="bh-btn bh-btn-white" style={{padding: '6px'}}>
+                                   <Printer size={16} />
                                </button>
                            </div>
-                         </li>
+                         </div>
                        ))}
-                     </ul>
+                     </div>
                   )}
               </div>
             </div>
@@ -400,12 +399,14 @@ export default function Home() {
   );
 }
 
-function DashboardCard({ label, value, sub }: { label: string, value: string, sub?: string }) {
+function DashboardCard({ label, value, icon }: { label: string, value: string, icon?: any }) {
     return (
-        <div style={{ flex: 1, background: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #eaeaea', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
-            <div style={{ fontSize: '12px', textTransform: 'uppercase', color: '#888', fontWeight: 600, marginBottom: '6px' }}>{label}</div>
-            <div style={{ fontSize: '20px', fontWeight: 600, color: '#111' }}>{value}</div>
-            {sub && <div style={{ fontSize: '11px', color: '#aaa', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</div>}
+        <div className="bh-card" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {icon && <div style={{ opacity: 0.5 }}>{icon}</div>}
+            <div>
+                <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 700, opacity: 0.6 }}>{label}</div>
+                <div style={{ fontSize: '20px', fontWeight: 900 }}>{value}</div>
+            </div>
         </div>
     );
 }

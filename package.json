@@ -17,6 +17,7 @@
     "@types/fs-extra": "^11.0.4",
     "date-fns": "^4.1.0",
     "fs-extra": "^11.3.3",
+    "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
