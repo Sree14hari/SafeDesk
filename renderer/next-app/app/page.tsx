@@ -1,5 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useLanguage } from './LanguageContext';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { 
   Shield, 
   Trash2, 
@@ -44,6 +46,7 @@ interface ResidueFile {
 }
 
 export default function Home() {
+  const { t, language } = useLanguage();
   const [status, setStatus] = useState('Ready');
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
       id: null, startTime: null, totalSize: 0, fileCount: 0
@@ -215,7 +218,7 @@ export default function Home() {
   };
 
   return (
-    <div className="bh-container">
+    <div className="bh-container" data-lang={language}>
       
       {/* Header */}
       <header className="bh-header">
@@ -224,31 +227,30 @@ export default function Home() {
                 <Shield color="white" size={20} />
             </div>
             <div>
-                <h1 className="bh-title">SecureEngine</h1>
+                <h1 className="bh-title">{t('appName')}</h1>
                 <div style={{display:'flex', gap:'8px'}}>
-                    <div className="bh-status-pill">Disposal Mode</div>
+                    <div className="bh-status-pill">{t('customerMode')}</div>
                 </div>
             </div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-             <div style={{fontFamily: 'monospace', fontWeight: 600}}>
-                 <Activity size={14} style={{marginRight: 6, verticalAlign: 'middle'}}/>
-                 {status}
-             </div>
 
-
-        </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                {sessionInfo.type === 'PRINT' && (
+             <div style={{fontFamily: 'monospace', fontWeight: 600, marginRight: '8px', display: 'flex', alignItems: 'center'}}>
+                 <Activity size={14} style={{marginRight: 6}}/>
+                 {status}
+             </div>
+             <div style={{width:'1px', height:'24px', background:'#e0e0e0'}}></div>
+
+             {sessionInfo.type === 'PRINT' && (
                      <button className="bh-btn bh-btn-action" onClick={handleScan}>
-                         <ScanLine size={16} /> Scan Paper
+                         <ScanLine size={16} /> {t('btnScanPaper')}
                      </button>
                  )}
                  {sessionInfo.type === 'TASK' && (
                       <button className="bh-btn bh-btn-action" onClick={handleLaunchBrowser} style={{background: '#2196F3'}}>
-                         <Globe size={16} /> Open Secure Browser
+                         <Globe size={16} /> {t('btnOpenBrowser')}
                      </button>
                  )}
                  
@@ -256,10 +258,11 @@ export default function Home() {
                     <>
                     <div style={{width:'2px', height:'30px', background:'black'}}></div>
                     <button className="bh-btn bh-btn-danger" onClick={handleEndSession}>
-                        <Trash2 size={16} /> Destroy Session
+                        <Trash2 size={16} /> {t('endSession')}
                     </button>
                     </>
                 )}
+                <LanguageSwitcher />
         </div>
       </header>
 
@@ -307,15 +310,15 @@ export default function Home() {
                     <div style={{width:'80px', height:'80px', background:'var(--bh-black)', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <Shield size={40} color="white" />
                     </div>
-                    <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>Print Zone</h2>
-                    <p style={{ marginBottom: '30px' }}>Securely review, print, and destroy sensitive documents in an isolated environment.</p>
+                    <h2 style={{ textTransform:'uppercase', fontWeight: 900 }}>{t('printZoneTitle')}</h2>
+                    <p style={{ marginBottom: '30px' }}>{t('printZoneDesc')}</p>
                     <button 
                         onClick={handleStartSession}
                         className="bh-btn bh-btn-primary"
                         style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}
                         disabled={wipeFailures.length > 0} 
                     >
-                        Start Secure Session
+                        {t('startPrintSession')}
                     </button>
                 </div>
 
@@ -323,23 +326,23 @@ export default function Home() {
                 <div className="bh-card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                         <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px', textTransform:'uppercase', fontSize: '16px' }}>
-                            <Search size={20} /> Data Residue Guard
+                            <Search size={20} /> {t('residueGuardTitle')}
                         </h3>
                     </div>
-                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>Scan system locations for sensitive files left behind.</p>
+                    <p style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>{t('residueGuardDesc')}</p>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={scanOptions.desktop} onChange={() => toggleOption('desktop')} /> Desktop
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px 20px', marginBottom: '20px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', minWidth: '45%' }}>
+                            <input type="checkbox" checked={scanOptions.desktop} onChange={() => toggleOption('desktop')} /> <span style={{whiteSpace:'nowrap'}}>{t('scan_desktop')}</span>
                         </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={scanOptions.downloads} onChange={() => toggleOption('downloads')} /> Downloads
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', minWidth: '45%' }}>
+                            <input type="checkbox" checked={scanOptions.downloads} onChange={() => toggleOption('downloads')} /> <span style={{whiteSpace:'nowrap'}}>{t('scan_downloads')}</span>
                         </label>
-                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={scanOptions.documents} onChange={() => toggleOption('documents')} /> Documents
+                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', minWidth: '45%' }}>
+                            <input type="checkbox" checked={scanOptions.documents} onChange={() => toggleOption('documents')} /> <span style={{whiteSpace:'nowrap'}}>{t('scan_documents')}</span>
                         </label>
-                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={scanOptions.pictures} onChange={() => toggleOption('pictures')} /> Pictures
+                         <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', minWidth: '45%' }}>
+                            <input type="checkbox" checked={scanOptions.pictures} onChange={() => toggleOption('pictures')} /> <span style={{whiteSpace:'nowrap'}}>{t('scan_pictures')}</span>
                         </label>
                     </div>
 
@@ -349,7 +352,7 @@ export default function Home() {
                         className="bh-btn bh-btn-white"
                         style={{ width: '100%', justifyContent: 'center', marginBottom: '20px', marginTop: 'auto' }}
                     >
-                        {isProcessing ? 'Scanning...' : 'Start Scan'}
+                        {isProcessing ? t('actionScanning') : t('actionStartScan')}
                     </button>
                     
                     {cleanupReport && (
@@ -363,13 +366,13 @@ export default function Home() {
                             {residueFiles.length === 0 ? (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'green', fontWeight: 700 }}>
                                     <CheckCircle size={24} />
-                                    <span>SYSTEM CLEAN.</span>
+                                    <span>{t('statusClean')}</span>
                                 </div>
                             ) : (
                                 <div style={{ background: '#fff', border: '1px solid var(--bh-red)', borderRadius: 'var(--radius)', padding: '15px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--bh-red)', marginBottom: '10px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 800, textTransform:'uppercase', fontSize: '13px' }}>
-                                            <AlertTriangle size={16} /> {residueFiles.length} Risks Found
+                                            <AlertTriangle size={16} /> {residueFiles.length} {t('statusRisks')}
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '12px', maxHeight: '150px', overflowY: 'auto', marginBottom: '10px' }}>
@@ -384,7 +387,7 @@ export default function Home() {
                                         className="bh-btn bh-btn-danger"
                                         style={{ width: '100%', justifyContent: 'center', fontSize: '12px' }}
                                     >
-                                        CLEANUP ALL
+                                        {t('actionCleanup')}
                                     </button>
                                 </div>
                             )}
@@ -397,15 +400,15 @@ export default function Home() {
                      <div style={{width:'60px', height:'60px', background:'#666', borderRadius:'50%', margin:'0 auto 20px', display:'flex', alignItems:'center', justifyContent:'center'}}>
                         <Clock size={30} color="white" />
                      </div>
-                     <h2 style={{ textTransform:'uppercase', fontWeight: 900, fontSize: '18px' }}>Ephemeral Task Zone</h2>
-                     <p style={{ marginBottom: '30px', fontSize: '13px' }}>Temporary workspace for online forms & uploads. Auto-destroys on exit.</p>
+                     <h2 style={{ textTransform:'uppercase', fontWeight: 900, fontSize: '18px' }}>{t('taskZoneTitle')}</h2>
+                     <p style={{ marginBottom: '30px', fontSize: '13px' }}>{t('taskZoneDesc')}</p>
                      <button 
                         onClick={handleStartTaskSession}
                         className="bh-btn bh-btn-primary"
                         style={{ width: '100%', justifyContent: 'center', background: '#444', marginTop: 'auto' }}
                         disabled={wipeFailures.length > 0}  
                      >
-                        Start Task Mode
+                        {t('startTaskSession')}
                      </button>
                 </div>
             </div>
@@ -417,21 +420,21 @@ export default function Home() {
                 {endReason && (
                     <div className="bh-card" style={{ marginTop: '30px', borderTop: '4px solid var(--bh-green)', padding: '25px' }}>
                         <h3 style={{ marginTop: 0, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Shield size={20} color="green" /> Privacy Footprint – LIVE
+                            <Shield size={20} color="green" /> {t('privacyFootprint')}
                         </h3>
                         
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '20px 0' }}>
-                            <StatusItem label="Active Sessions" value="0" />
-                            <StatusItem label="Session Folders" value="0" />
-                            <StatusItem label="Browser Cache" value="Clean" />
-                            <StatusItem label="Downloads" value="Clean" />
-                            <StatusItem label="Desktop" value="Clean" />
-                            <StatusItem label="Print Spool" value="Empty" />
-                            <StatusItem label="Temp Files" value="Clean" />
+                            <StatusItem label={t('fpActiveSessions')} value="0" />
+                            <StatusItem label={t('fpSessionFolders')} value="0" />
+                            <StatusItem label={t('fpBrowserCache')} value="Clean" />
+                            <StatusItem label={t('scan_downloads')} value="Clean" />
+                            <StatusItem label={t('scan_desktop')} value="Clean" />
+                            <StatusItem label={t('fpPrintSpool')} value="Empty" />
+                            <StatusItem label={t('fpTempFiles')} value="Clean" />
                         </div>
 
                         <div style={{ background: '#e6f4ea', color: '#137333', padding: '15px', borderRadius: '8px', textAlign: 'center', fontWeight: 800, border: '1px solid #ceead6' }}>
-                            OVERALL STATE: 🟢 ZERO CUSTOMER DATA
+                            {t('zeroData')}
                         </div>
                     </div>
                 )}
@@ -443,15 +446,17 @@ export default function Home() {
             
             {/* Metadata Dashboard */}
             <div className="bh-grid">
-                <DashboardCard label="Session ID" value={sessionInfo.id.split('_')[2] || '...'} icon={<Shield size={20}/>} />
-                <DashboardCard label="Started At" value={formatTime(sessionInfo.startTime)} icon={<Clock size={20}/>} />
-                <DashboardCard label="Files" value={sessionInfo.fileCount.toString()} icon={<FileText size={20}/>}/>
-                <DashboardCard 
-                    label="Auto-End Timeout" 
-                    value={sessionInfo.currentTimeoutSeconds ? `${Math.floor(sessionInfo.currentTimeoutSeconds / 60)}m ${sessionInfo.currentTimeoutSeconds % 60}s` : '5m'} 
-                    icon={<AlertTriangle size={20}/>}
-                />
-                <DashboardCard label="Storage" value={formatBytes(sessionInfo.totalSize)} icon={<HardDrive size={20}/>} />
+                <DashboardCard label={t('sessionId')} value={sessionInfo.id.split('_')[2] || '...'} icon={<Shield size={20}/>} />
+                <DashboardCard label={t('startedAt')} value={formatTime(sessionInfo.startTime)} icon={<Clock size={20}/>} />
+                <DashboardCard label={t('files')} value={sessionInfo.fileCount.toString()} icon={<FileText size={20}/>}/>
+                {sessionInfo.type !== 'TASK' && (
+                    <DashboardCard 
+                        label={t('autoEndTimeout')}
+                        value={sessionInfo.currentTimeoutSeconds ? `${Math.floor(sessionInfo.currentTimeoutSeconds / 60)}m ${sessionInfo.currentTimeoutSeconds % 60}s` : '5m'} 
+                        icon={<AlertTriangle size={20}/>}
+                    />
+                )}
+                <DashboardCard label={t('storage')} value={formatBytes(sessionInfo.totalSize)} icon={<HardDrive size={20}/>} />
             </div>
 
             {sessionInfo.uploadUrl && (
@@ -461,11 +466,10 @@ export default function Home() {
                     </div>
                     <div>
                         <h3 style={{ margin: '0 0 8px 0', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
-                            <Smartphone size={20} /> Secure Mobile Upload
+                            <Smartphone size={20} /> {t('qrUploadTitle')}
                         </h3>
                         <p style={{ fontSize: '13px', color: '#555', maxWidth: '400px', margin: 0 }}>
-                            Scan this QR code to upload a file directly from your mobile device. 
-                            The link is valid for <b>one upload</b> only and expires immediately.
+                            {t('qrUploadInstructions')}
                         </p>
                     </div>
                 </div>
@@ -473,28 +477,28 @@ export default function Home() {
 
             {/* Action Bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '20px', textTransform:'uppercase', fontWeight: 800 }}>Tracking for Destruction</h2>
+              <h2 style={{ margin: 0, fontSize: '20px', textTransform:'uppercase', fontWeight: 800 }}>{t('trackingHeader')}</h2>
               <button 
                 onClick={handleImport}
                 disabled={isProcessing}
                 className="bh-btn bh-btn-primary"
               >
-                <FileUp size={16} /> {isProcessing ? 'Processing...' : 'Add Files'}
+                <FileUp size={16} /> {isProcessing ? t('lblProcessing') : t('lblAddFiles')}
               </button>
             </div>
 
             {/* File List */}
             <div className="bh-card" style={{ padding: 0, overflow: 'hidden' }}>
               <div style={{ padding: '16px', borderBottom: '2px solid black', background: '#eee', fontSize: '12px', fontWeight: 800, display: 'flex' }}>
-                  <div style={{ flex: 1 }}>FILE</div>
-                  <div style={{ width: '150px' }}>STATUS</div>
-                  <div style={{ width: '100px', textAlign:'right' }}>ACTIONS</div>
+                  <div style={{ flex: 1 }}>{t('colFile')}</div>
+                  <div style={{ width: '150px' }}>{t('colStatus')}</div>
+                  <div style={{ width: '100px', textAlign:'right' }}>{t('colActions')}</div>
               </div>
               
               <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {files.length === 0 ? (
                     <div style={{ padding: '60px', textAlign: 'center', color: '#999' }}>
-                      <p style={{fontWeight: 600}}>NO FILES TRACKED</p>
+                      <p style={{fontWeight: 600}}>{t('lblNoFiles')}</p>
                     </div>
                   ) : (
                      <div>
@@ -547,7 +551,7 @@ export default function Home() {
       </main>
 
         {/* Floating AI Safety Button */}
-        {sessionInfo.id && sessionInfo.riskLevel && (
+        {sessionInfo.id && sessionInfo.riskLevel && sessionInfo.type !== 'TASK' && (
            <div style={{
                position: 'fixed',
                bottom: '24px',
