@@ -20,6 +20,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
+  
+  // Anti-Screenshot Protection
+  mainWindow.setContentProtection(true);
 
   const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
   if (isDev) {

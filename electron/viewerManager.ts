@@ -25,9 +25,12 @@ export class ViewerManager {
                     nodeIntegration: false,
                     contextIsolation: false, 
                     sandbox: false,
-                    plugins: true 
+                    plugins: true
                 }
             });
+
+            // Anti-Screenshot Protection
+            viewerWindow.setContentProtection(true);
 
             // CRITICAL: Disable the native menu bar to prevent "Save As"
             viewerWindow.setMenu(null);
