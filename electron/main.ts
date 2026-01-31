@@ -58,8 +58,35 @@ app.whenReady().then(async () => {
       }
   });
 
+  ipcMain.handle('system:set-mode', async (event, mode: 'CUSTOMER' | 'OWNER') => {
+      // In a real app, this would require authentication payload.
+      // For now, we allow switching if IDLE (or valid).
+      try {
+          sessionManager.setMode(mode);
+          return { success: true };
+      } catch (e: any) {
+          return { success: false, error: e.message };
+      }
+  });
+
+  ipcMain.handle('logs:get', async () => {
+      if (sessionManager.getMode() !== 'OWNER') {
+          throw new Error("Access Denied: Logs valid only in Owner Mode.");
+      }
+      // Access audit logger via sessionManager if exposed, or make it public.
+      // Since sessionManager has the logger, we might need a getter or pass it through.
+      // I'll add getAuditLog to SessionManager or just instantiate one here (it reads same file).
+      // Better to use SessionManager's instance or a new one safely.
+      // New instance is fine as it reads file.
+      const logger = new (require('./auditLogger').AuditLogger)(); 
+      return await logger.getLogs();
+  });
+
   ipcMain.on('session:start', async (event) => {
     try {
+      if (sessionManager.getMode() === 'OWNER') {
+          throw new Error("Cannot start session in Owner/Disposal Mode.");
+      }
       const sessionId = await sessionManager.startSession();
       console.log(`Main Process: Session ${sessionId} started`);
       event.sender.send('session:created', sessionId);
@@ -113,6 +140,7 @@ app.whenReady().then(async () => {
 
   ipcMain.on('files:scan', async (event) => {
       try {
+          // Allowed in Session
           const sessionPath = await sessionManager.getSessionPath();
           if (!sessionPath) throw new Error("No active session");
           
@@ -133,6 +161,12 @@ app.whenReady().then(async () => {
 
   ipcMain.on('files:trigger-import', async (event) => {
     if (!mainWindow) return;
+
+    // Check Mode
+    if (sessionManager.getMode() === 'OWNER') {
+        event.sender.send('session:status', 'Import blocked in Owner/Disposal Mode');
+        return;
+    }
 
     const { id } = sessionManager.getSessionInfo();
     if (!id) {
@@ -162,11 +196,22 @@ app.whenReady().then(async () => {
   // --- Residue Guard IPC ---
 
   ipcMain.handle('residue:scan', async () => {
+      // Allow scan in all modes (Transparency & Trust)
+      // "Residue scan is manual only" - Triggered by user via UI.
       console.log('[Main] Residue Scan Requested');
       return await residueScanner.scan();
   });
 
   ipcMain.handle('residue:clean', async (event, files: ResidueFile[]) => {
+      // Only allowed in OWNER mode
+      if (sessionManager.getMode() !== 'OWNER') {
+          console.warn('[Main] Blocked Residue Cleanup (Customer Mode)');
+          return {
+              successCount: 0,
+              failures: ["Access Denied: Cleanup requires Owner Mode (Restricted Action)."]
+          };
+      }
+
       console.log(`[Main] Residue Cleaning Requested for ${files.length} files`);
       return await residueScanner.clean(files);
   });

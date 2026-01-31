@@ -3,9 +3,11 @@ import * as path from 'path';
 
 const STORE_FILE = 'C:\\SafeDesk\\session-store.json';
 
+export type SystemState = 'IDLE' | 'ACTIVE_SESSION' | 'DESTRUCTION_IN_PROGRESS' | 'SYSTEM_CLEAN';
+
 export interface PersistentState {
     lastSessionId: string | null;
-    status: 'ACTIVE' | 'ENDED' | 'WIPE_FAILED';
+    status: SystemState;
     path: string | null;
     timestamp: number;
 }
@@ -14,7 +16,7 @@ export class PersistenceManager {
     constructor() {
         fs.ensureDirSync(path.dirname(STORE_FILE));
         if (!fs.existsSync(STORE_FILE)) {
-            this.saveState({ lastSessionId: null, status: 'ENDED', path: null, timestamp: Date.now() });
+            this.saveState({ lastSessionId: null, status: 'IDLE', path: null, timestamp: Date.now() });
         }
     }
 
@@ -36,7 +38,7 @@ export class PersistenceManager {
             return fs.readJsonSync(STORE_FILE);
         } catch (error) {
             console.error('[Persistence] Failed to load state, resetting:', error);
-            return { lastSessionId: null, status: 'ENDED', path: null, timestamp: Date.now() };
+            return { lastSessionId: null, status: 'IDLE', path: null, timestamp: Date.now() };
         }
     }
 }
