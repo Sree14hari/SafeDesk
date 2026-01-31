@@ -335,7 +335,7 @@ export default function Home() {
                         onClick={handleResidueScan}
                         disabled={isProcessing}
                         className="bh-btn bh-btn-white"
-                        style={{ width: '100%', justifyContent: 'center', marginBottom: '20px' }}
+                        style={{ width: '100%', justifyContent: 'center', marginBottom: '20px', marginTop: 'auto' }}
                     >
                         {isProcessing ? 'Scanning...' : 'Start Scan'}
                     </button>
