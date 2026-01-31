@@ -10,6 +10,7 @@ interface SessionInfo {
 interface FileMetadata {
   name: string;
   size: number;
+  originalPath: string | null;
 }
 
 export default function Home() {
@@ -18,7 +19,7 @@ export default function Home() {
       id: null, startTime: null, totalSize: 0, fileCount: 0
   });
   const [files, setFiles] = useState<FileMetadata[]>([]);
-  const [isImporting, setIsImporting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [endReason, setEndReason] = useState<string | null>(null);
   const [wipeFailures, setWipeFailures] = useState<string[]>([]);
 
@@ -26,6 +27,7 @@ export default function Home() {
     if (window.electronAPI) {
       window.electronAPI.onSessionStatus((_event, value) => {
           setStatus(value);
+          if (value.includes('Scann') || value.includes('Print')) setIsProcessing(false); 
       });
 
       window.electronAPI.onSessionCreated((_event, id) => {
@@ -52,7 +54,7 @@ export default function Home() {
       window.electronAPI.onFilesUpdated((_event, newFiles) => {
          setFiles(prev => [...prev, ...newFiles]);
          setStatus(`Imported ${newFiles.length} file(s)`);
-         setIsImporting(false);
+         setIsProcessing(false);
       });
       
       window.electronAPI.onSessionInfoUpdated((_event, info) => {
@@ -65,12 +67,11 @@ export default function Home() {
     if (window.electronAPI) {
       window.electronAPI.startSession();
       setStatus('Initializing Secure Disposition Workspace...');
-      setWipeFailures([]); // Clear previous errors
+      setWipeFailures([]);
     }
   };
 
   const handleEndSession = () => {
-      // EXPLICIT WARNING
       if (window.electronAPI && confirm("⚠️ WARNING: This will PERMANENTLY WIPE the ORIGINAL files from your computer (e.g., Desktop/Documents) AND the session copies.\n\nAre you sure you want to destroy these files?")) {
         window.electronAPI.endSession();
       }
@@ -78,8 +79,26 @@ export default function Home() {
 
   const handleImport = () => {
     if (!sessionInfo.id) return;
-    setIsImporting(true);
+    setIsProcessing(true);
     window.electronAPI.triggerFileImport();
+  };
+  
+  const handleScan = () => {
+    if (!sessionInfo.id) return;
+    setIsProcessing(true);
+    window.electronAPI.triggerScan();
+  };
+  
+  const handlePrint = (fileName: string) => {
+      if (window.electronAPI) {
+          window.electronAPI.printFile(fileName);
+      }
+  };
+
+  const handlePreview = (fileName: string) => {
+      if (window.electronAPI) {
+          window.electronAPI.previewFile(fileName);
+      }
   };
   
   const formatBytes = (bytes: number) => {
@@ -107,11 +126,19 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>Status: <strong>{status}</strong></div>
             {sessionInfo.id && (
+                <>
+                <button 
+                    onClick={handleScan}
+                    style={{ background: '#0070f3', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', display:'flex', alignItems:'center', gap:'5px' }}>
+                    <span>📄</span> SCAN DOCUMENT
+                </button>
+                <div style={{height:'20px', borderLeft:'1px solid #ddd'}}></div>
                 <button 
                     onClick={handleEndSession} 
                     style={{ background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
                     DESTROY SESSION & FILES
                 </button>
+                </>
             )}
         </div>
       </header>
@@ -136,7 +163,6 @@ export default function Home() {
                         <li key={idx} style={{ marginBottom: '4px' }}>{fail}</li>
                     ))}
                 </ul>
-                <p style={{ marginTop: '10px', fontSize: '13px', fontWeight: 600 }}>ACTION: Close any applications using these files and try manually deleting them.</p>
             </div>
         )}
 
@@ -154,7 +180,7 @@ export default function Home() {
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
             <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', maxWidth: '400px' }}>
                 <h2 style={{ marginTop: 0 }}>Start Disposition Session</h2>
-                <p style={{ color: '#666', marginBottom: '30px' }}>Securely review and then permanently destroy sensitive documents.</p>
+                <p style={{ color: '#666', marginBottom: '30px' }}>Securely review, print, scan, and destroy sensitive documents.</p>
                 <button 
                   onClick={handleStartSession}
                   style={{
@@ -169,7 +195,7 @@ export default function Home() {
                     width: '100%',
                     transition: 'opacity 0.2s'
                   }}
-                  disabled={wipeFailures.length > 0} // Prevent new session until they acknowledge (refresh app)
+                  disabled={wipeFailures.length > 0} 
                 >
                   Start Secure Session
                 </button>
@@ -191,14 +217,14 @@ export default function Home() {
               <h2 style={{ margin: 0, fontSize: '18px' }}>Tracking for Destruction</h2>
               <button 
                 onClick={handleImport}
-                disabled={isImporting}
+                disabled={isProcessing}
                 style={{
                   padding: '10px 20px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  cursor: isImporting ? 'not-allowed' : 'pointer',
-                  backgroundColor: isImporting ? '#f0f0f0' : '#0070f3',
-                  color: isImporting ? '#999' : 'white',
+                  cursor: isProcessing ? 'not-allowed' : 'pointer',
+                  backgroundColor: isProcessing ? '#f0f0f0' : '#0070f3',
+                  color: isProcessing ? '#999' : 'white',
                   border: 'none',
                   borderRadius: '6px',
                   display: 'flex',
@@ -206,36 +232,62 @@ export default function Home() {
                   gap: '8px'
                 }}
               >
-                {isImporting ? 'Importing...' : '+ Add Files to Destroy'}
+                {isProcessing ? 'Processing...' : '+ Add Files to Destroy'}
               </button>
             </div>
 
             {/* File List */}
             <div style={{ flex: 1, background: '#fff', borderRadius: '8px', border: '1px solid #eaeaea', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '12px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', fontSize: '12px', fontWeight: 600, color: '#d32f2f', display: 'flex' }}>
-                  <div style={{ flex: 1 }}>FILE (MARKED FOR DELETION)</div>
-                  <div style={{ width: '100px', textAlign: 'right' }}>SIZE</div>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', fontSize: '12px', fontWeight: 600, color: '#666', display: 'flex' }}>
+                  <div style={{ flex: 1 }}>FILE</div>
+                  <div style={{ width: '100px' }}>STATUS</div>
+                  <div style={{ width: '120px', textAlign:'right' }}>ACTIONS</div>
               </div>
               
               <div style={{ overflowY: 'auto', flex: 1 }}>
                   {files.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
                       <p>No files tracked.</p>
-                      <p style={{ fontSize: '13px' }}>Import files to mark them for secure destruction.</p>
+                      <p style={{ fontSize: '13px' }}>Import or Scan files to begin.</p>
                     </div>
                   ) : (
                      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                        {files.map((file, idx) => (
                          <li key={idx} style={{ 
-                           padding: '12px 20px', 
+                           padding: '10px 20px', 
                            borderBottom: '1px solid #f5f5f5', 
                            display: 'flex', 
                            justifyContent: 'space-between',
                            alignItems: 'center',
                            fontSize: '14px'
                          }}>
-                           <span style={{ fontWeight: 500, color: '#333' }}>{file.name}</span>
-                           <span style={{ color: '#d32f2f', fontFamily: 'monospace', fontSize:'11px', border:'1px solid #d32f2f', padding:'2px 4px', borderRadius:'3px' }}>WILL BE WIPED</span>
+                           <div style={{flex:1, display:'flex', flexDirection:'column'}}>
+                               <span style={{ fontWeight: 500, color: '#333' }}>{file.name}</span>
+                               <span style={{ fontSize:'11px', color:'#999' }}>{formatBytes(file.size)}</span>
+                           </div>
+                           
+                           <div style={{ width: '100px' }}>
+                               {file.originalPath ? 
+                                    <span style={{ color: '#d32f2f', fontSize:'10px', border:'1px solid #d32f2f', padding:'1px 4px', borderRadius:'3px' }}>SOURCES MATCHED</span>
+                                    : 
+                                    <span style={{ color: '#2e7d32', fontSize:'10px', border:'1px solid #2e7d32', padding:'1px 4px', borderRadius:'3px' }}>SESSION GENERATED</span>
+                                }
+                           </div>
+                           
+                           <div style={{ width: '120px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                               <button 
+                                onClick={() => handlePreview(file.name)}
+                                title="Secure Preview"
+                                style={{ background:'none', border:'1px solid #ddd', borderRadius:'4px', cursor:'pointer', padding:'4px 8px' }}>
+                                   👁️
+                               </button>
+                               <button 
+                                onClick={() => handlePrint(file.name)}
+                                title="Secure Print"
+                                style={{ background:'none', border:'1px solid #ddd', borderRadius:'4px', cursor:'pointer', padding:'4px 8px' }}>
+                                   🖨️
+                               </button>
+                           </div>
                          </li>
                        ))}
                      </ul>

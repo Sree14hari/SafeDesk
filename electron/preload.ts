@@ -5,6 +5,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   endSession: () => ipcRenderer.send('session:end'),
   triggerFileImport: () => ipcRenderer.send('files:trigger-import'),
   
+  printFile: (fileName: string) => ipcRenderer.send('files:print', fileName),
+  previewFile: (fileName: string) => ipcRenderer.send('files:preview', fileName),
+  triggerScan: () => ipcRenderer.send('files:scan'),
+  
   onSessionStatus: (callback: (event: any, value: string) => void) => 
     ipcRenderer.on('session:status', callback),
     

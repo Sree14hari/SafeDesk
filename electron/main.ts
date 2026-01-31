@@ -1,9 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import { SessionManager } from './sessionManager';
+import { ScanManager } from './scanManager';
 
 let mainWindow: BrowserWindow | null = null;
 const sessionManager = new SessionManager();
+const scanManager = new ScanManager();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -47,7 +49,6 @@ app.whenReady().then(async () => {
       }
   });
 
-  // Updated to include failures list
   sessionManager.on('session-ended', (reason: string, failures: string[]) => {
       console.log(`Main Process: Sending session-ended (${reason})`);
       if (mainWindow) {
@@ -69,6 +70,63 @@ app.whenReady().then(async () => {
 
   ipcMain.on('session:end', (event) => {
       sessionManager.endSession('MANUAL');
+  });
+
+  ipcMain.on('files:print', async (event, fileName: string) => {
+      try {
+          const sessionPath = await sessionManager.getSessionPath();
+          if (!sessionPath) throw new Error("No active session");
+          
+          const filePath = path.join(sessionPath, fileName);
+          console.log(`[Main] Requesting print for: ${filePath}`);
+          
+          if (!mainWindow) throw new Error("Main window not available");
+          
+          await sessionManager.getPrintManager().printFile(filePath, mainWindow);
+          event.sender.send('session:status', `Printed: ${fileName}`);
+      } catch (err: any) {
+          console.error('[Main] Print failed:', err);
+          event.sender.send('session:status', `Print Error: ${err.message}`);
+      }
+  });
+
+  ipcMain.on('files:preview', async (event, fileName: string) => {
+      try {
+          const sessionPath = await sessionManager.getSessionPath();
+          if (!sessionPath) throw new Error("No active session");
+          
+          const filePath = path.join(sessionPath, fileName);
+          console.log(`[Main] Requesting preview for: ${filePath}`);
+          
+          if (!mainWindow) throw new Error("Main window not available");
+          
+          // Secure Preview
+          await sessionManager.getViewerManager().previewFile(filePath, mainWindow);
+          
+      } catch (err: any) {
+          console.error('[Main] Preview failed:', err);
+          event.sender.send('session:status', `Preview Error: ${err.message}`);
+      }
+  });
+
+  ipcMain.on('files:scan', async (event) => {
+      try {
+          const sessionPath = await sessionManager.getSessionPath();
+          if (!sessionPath) throw new Error("No active session");
+          
+          event.sender.send('session:status', 'Scanning document...');
+          
+          const scanPath = await scanManager.simulateScan(sessionPath);
+          const updatedFiles = await sessionManager.registerScan(scanPath);
+          
+          event.sender.send('files:updated', updatedFiles);
+          sendSessionInfo(event.sender);
+          event.sender.send('session:status', 'Scan received successfully.');
+          
+      } catch (err: any) {
+          console.error('[Main] Scan failed:', err);
+          event.sender.send('session:status', `Scan Error: ${err.message}`);
+      }
   });
 
   ipcMain.on('files:trigger-import', async (event) => {

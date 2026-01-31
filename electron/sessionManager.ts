@@ -3,11 +3,13 @@ import * as path from 'path';
 import { PersistenceManager } from './persistenceManager';
 import { EventEmitter } from 'events';
 import { secureWipeSession, secureDeleteFile } from './secureWipe';
+import { PrintManager } from './printManager';
+import { ViewerManager } from './viewerManager';
 
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
-export interface FileMetadata { name: string; size: number; originalPath: string; }
+export interface FileMetadata { name: string; size: number; originalPath: string | null; }
 export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; }
 
 export class SessionManager extends EventEmitter {
@@ -21,11 +23,16 @@ export class SessionManager extends EventEmitter {
   private inactivityTimer: NodeJS.Timeout | null = null;
   private persistence: PersistenceManager;
   private isWiping: boolean = false;
+  
+  private printManager: PrintManager;
+  private viewerManager: ViewerManager;
 
   constructor() {
     super();
     fs.ensureDirSync(BASE_DIR);
     this.persistence = new PersistenceManager();
+    this.printManager = new PrintManager();
+    this.viewerManager = new ViewerManager();
   }
 
   // --- Lifecycle ---
@@ -88,6 +95,10 @@ export class SessionManager extends EventEmitter {
       
       this.clearInactivityTimer();
       
+      // Cleanup Windows to release file locks
+      this.printManager.closeAll();
+      this.viewerManager.closeAll();
+      
       const oldId = this.activeSessionId;
       const oldPath = this.sessionPath;
       const filesToDestroy = [...this.importedFiles];
@@ -105,9 +116,12 @@ export class SessionManager extends EventEmitter {
       if (filesToDestroy.length > 0) {
           console.log('[SessionManager] DESTROYING ORIGINAL SOURCE FILES...');
           for (const file of filesToDestroy) {
-             const result = await secureDeleteFile(file.originalPath);
-             if (!result.success) {
-                 wipeFailures.push(`${file.originalPath} (${result.error})`);
+             // Skip generated files (e.g. Scans) that have no external source
+             if (file.originalPath) {
+                 const result = await secureDeleteFile(file.originalPath);
+                 if (!result.success) {
+                     wipeFailures.push(`${file.originalPath} (${result.error})`);
+                 }
              }
           }
       }
@@ -152,8 +166,20 @@ export class SessionManager extends EventEmitter {
           this.startInactivityTimer();
       }
   }
+  
+  public getPrintManager(): PrintManager {
+      return this.printManager;
+  }
+
+  public getViewerManager(): ViewerManager {
+      return this.viewerManager;
+  }
 
   // --- Files ---
+
+  public async getSessionPath(): Promise<string | null> {
+      return this.sessionPath;
+  }
 
   private async resolveUniqueFilename(targetDir: string, fileName: string): Promise<string> {
       let finalName = fileName;
@@ -165,6 +191,25 @@ export class SessionManager extends EventEmitter {
           counter++;
       }
       return finalName;
+  }
+  
+  public async registerScan(scanPath: string): Promise<FileMetadata[]> {
+       if (!this.activeSessionId) throw new Error("No active session");
+       
+       this.notifyActivity();
+       
+       const stats = await fs.stat(scanPath);
+       const name = path.basename(scanPath);
+       
+       const metadata: FileMetadata = {
+           name: name,
+           size: stats.size,
+           originalPath: null // Generated file, no source to wipe
+       };
+       this.importedFiles.push(metadata);
+       this.totalSize += stats.size;
+       
+       return this.importedFiles;
   }
 
   public async importFiles(sourcePaths: string[]): Promise<FileMetadata[]> {

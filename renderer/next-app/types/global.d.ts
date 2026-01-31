@@ -4,6 +4,7 @@ declare global {
   interface FileMetadata {
     name: string;
     size: number;
+    originalPath: string | null;
   }
   
   interface SessionInfo {
@@ -18,6 +19,10 @@ declare global {
       startSession: () => void;
       endSession: () => void;
       triggerFileImport: () => void;
+      printFile: (fileName: string) => void;
+      previewFile: (fileName: string) => void;
+      triggerScan: () => void;
+      
       onSessionStatus: (callback: (event: any, value: string) => void) => void;
       onSessionCreated: (callback: (event: any, sessionId: string) => void) => void;
       onSessionEnded: (callback: (event: any, reason: string, failures: string[]) => void) => void;
