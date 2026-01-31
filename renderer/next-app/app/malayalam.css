@@ -1,0 +1,25 @@
+/* Malayalam Language Overrides - Normalized Size */
+
+/* Keep font size logical same as English, just adjust line-height for script complexity */
+.bh-container[data-lang="ml"] {
+  /* No font-size increase */
+}
+
+/* Ensure Titles are readable but not huge */
+[data-lang="ml"] .bh-title {
+  /* font-size inherited or same as default */
+  letter-spacing: normal;
+}
+
+/* Fix vertical alignment for buttons since Malayalam chars can be tall */
+[data-lang="ml"] .bh-btn {
+  line-height: 1.2;
+  padding: 10px 20px; /* Standard padding */
+}
+
+/* Headings just need breathing room, not size increase */
+[data-lang="ml"] h1,
+[data-lang="ml"] h2, 
+[data-lang="ml"] h3 {
+  line-height: 1.3;
+}
