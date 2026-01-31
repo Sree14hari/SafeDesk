@@ -106,6 +106,7 @@ export class TaskBrowser {
                 }
                 
                 await dbg.sendCommand('Page.enable');
+                await dbg.sendCommand('DOM.enable'); // Enable DOM for node resolution
                 await dbg.sendCommand('Page.setInterceptFileChooserDialog', { enabled: true });
                 
                 dbg.on('message', async (event, method, params) => {
@@ -134,10 +135,10 @@ export class TaskBrowser {
     }
 
     private async handleFileChooser(dbg: Electron.Debugger, params: any) {
-        const { mode } = params;
+        const { mode, backendNodeId } = params;
         // mode: 'selectSingle', 'selectMultiple', 'save'
         
-        console.log(`[TaskBrowser] CDP Intercepted File Chooser (Mode: ${mode})`);
+        console.log(`[TaskBrowser] CDP Intercepted File Chooser (Mode: ${mode}, ID: ${backendNodeId})`);
         
         const dialogProperties: any[] = ['openFile'];
         if (mode === 'selectMultiple') dialogProperties.push('multiSelections');
@@ -152,20 +153,32 @@ export class TaskBrowser {
             });
 
             if (res.canceled || res.filePaths.length === 0) {
-                try {
-                    await dbg.sendCommand('Page.handleFileChooser', { action: 'cancel' });
-                } catch(e) { /* ignore if replaced */ }
+                 // Cancellation: For <input type="file">, standard behavior is usually 'no change' or clear.
+                 // We don't have a 'cancel' command anymore. We can try setting empty files or just doing nothing.
+                 // Doing nothing might leave the renderer waiting? 
+                 // We will try setting empty array to signal 'no selection' / clear.
+                 if (backendNodeId) {
+                    try {
+                        await dbg.sendCommand('DOM.setFileInputFiles', { 
+                            files: [], 
+                            backendNodeId: backendNodeId 
+                        });
+                    } catch(e) { /* ignore */ }
+                 }
             } else {
-                try {
-                    await dbg.sendCommand('Page.handleFileChooser', { 
-                        action: 'accept', 
-                        files: res.filePaths 
-                    });
-                } catch(e) { console.error('Failed to submit files to page:', e); }
+                if (backendNodeId) {
+                    try {
+                        await dbg.sendCommand('DOM.setFileInputFiles', { 
+                            files: res.filePaths, 
+                            backendNodeId: backendNodeId 
+                        });
+                    } catch(e) { console.error('Failed to submit files to page:', e); }
+                } else {
+                     console.warn('[TaskBrowser] No backendNodeId provided by fileChooserOpened. Cannot set files.');
+                }
             }
         } catch (e) {
             console.error('[TaskBrowser] Failed to show open dialog:', e);
-            try { await dbg.sendCommand('Page.handleFileChooser', { action: 'cancel' }); } catch (ignore) {}
         }
     }
 
