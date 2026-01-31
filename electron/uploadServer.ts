@@ -15,6 +15,7 @@ export class UploadServer extends EventEmitter {
     
     // Approval State
     private uploadUsed: boolean = false;
+    private connectedIp: string | null = null;
     private pendingApproval: { 
         resolve: (allowed: boolean) => void, 
         fileName: string 
@@ -31,9 +32,24 @@ export class UploadServer extends EventEmitter {
         // 1. Mobile Client Page
         this.app.get('/upload', (req, res) => {
             const token = req.query.token as string;
+            const clientIp = req.socket.remoteAddress || req.ip;
 
             if (!token || token !== this.activeToken) {
                 return res.status(403).send('Invalid or expired Secure Upload Token.');
+            }
+
+            // Single Device Lock
+            if (this.connectedIp && this.connectedIp !== clientIp) {
+                 return res.status(403).send(`
+                    <h1>Secure Channel Busy</h1>
+                    <p>Another device is already connected to this secure session.</p>
+                 `);
+            }
+
+            // Lock to this IP
+            if (!this.connectedIp && clientIp) {
+                this.connectedIp = clientIp as string;
+                console.log(`[UploadServer] Secure channel locked to device: ${this.connectedIp}`);
             }
 
             res.send(this.getMobilePageHtml(token));
@@ -140,6 +156,7 @@ export class UploadServer extends EventEmitter {
             this.activeToken = token;
             this.uploadUsed = false;
             this.pendingApproval = null;
+            this.connectedIp = null;
 
             // Start on random port
             this.server = this.app.listen(0, () => {
