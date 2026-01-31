@@ -11,12 +11,26 @@ import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
 import { TaskBrowser } from './taskBrowser';
 
+import { GeminiPolicyService, PolicyRecommendation, SystemContext } from './geminiPolicyService';
+
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
 const TASK_DIR = 'C:\\SafeDesk\\tasks';
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+const DEFAULT_INACTIVITY_MS = 15 * 60 * 1000; // 15 minutes
 
 export interface FileMetadata { name: string; size: number; originalPath: string | null; source: 'IMPORT' | 'SCAN' | 'UPLOAD'; }
-export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; state: SystemState; mode: SystemMode; type: 'PRINT' | 'TASK'; uploadUrl?: string | null; }
+export interface SessionInfo { 
+    id: string | null; 
+    startTime: number | null; 
+    totalSize: number; 
+    fileCount: number; 
+    state: SystemState; 
+    mode: SystemMode; 
+    type: 'PRINT' | 'TASK'; 
+    uploadUrl?: string | null;
+    riskLevel?: "low" | "medium" | "high";
+    aiPolicyReason?: string;
+    currentTimeoutSeconds?: number;
+}
 
 export type SystemMode = 'CUSTOMER' | 'OWNER';
 
@@ -37,6 +51,13 @@ export class SessionManager extends EventEmitter {
   private uploadServer: UploadServer;
   private uploadUrl: string | null = null;
   private taskBrowser: TaskBrowser | null = null;
+  
+  // AI Policy Brain
+  private policyService: GeminiPolicyService;
+  private policyInterval: NodeJS.Timeout | null = null;
+  private currentTimeout: number = DEFAULT_INACTIVITY_MS;
+  private lastActivityTime: number = Date.now();
+  private currentPolicy: PolicyRecommendation | null = null;
 
   // Strict State Machine
   private state: SystemState = 'IDLE';
@@ -51,6 +72,7 @@ export class SessionManager extends EventEmitter {
     this.printManager = new PrintManager();
     this.viewerManager = new ViewerManager();
     this.uploadServer = new UploadServer();
+    this.policyService = new GeminiPolicyService();
     
     this.uploadServer.on('session-end-requested', () => {
          console.log('[SessionManager] Mobile user requested session end.');
@@ -118,6 +140,70 @@ export class SessionManager extends EventEmitter {
           status: this.state,
           timestamp: Date.now()
       });
+
+      // Trigger immediate policy check on state change
+      if (newState === 'ACTIVE_SESSION') {
+          this.updateSafetyPolicy().catch(console.error);
+      }
+  }
+
+  // --- AI Policy Engine ---
+
+  private getSystemContext(): SystemContext {
+      const now = Date.now();
+      const sessionAge = this.startTime ? (now - this.startTime) / 60000 : 0;
+      const idleTime = (now - this.lastActivityTime) / 60000;
+      const hour = new Date().getHours();
+      let timeOfDay = "day";
+      if (hour < 6) timeOfDay = "late_night";
+      else if (hour < 12) timeOfDay = "morning";
+      else if (hour > 20) timeOfDay = "night";
+
+      return {
+          environment_type: "internet_cafe_public",
+          mode: this.sessionType === 'TASK' ? "ephemeral_task_zone" : "secure_print_zone",
+          session_age_minutes: Math.round(sessionAge * 10) / 10,
+          user_idle_minutes: Math.round(idleTime * 10) / 10,
+          files_uploaded: this.importedFiles.length,
+          print_operations: 0, // Track if possible, assumed 0 for now
+          time_of_day: timeOfDay,
+          previous_sessions_today: 12 // Placeholder or track via persistence
+      };
+  }
+
+  private async updateSafetyPolicy() {
+      if (this.state !== 'ACTIVE_SESSION') return;
+
+      try {
+          const context = this.getSystemContext();
+          const rec = await this.policyService.getRecommendation(context);
+
+          // --- Enforcement Logic (The "Brain" Filter) ---
+          // We only tighten security, never loosen below baseline.
+          
+          // 1. Timeout logic: Min(Default, Recommended)
+          // Convert rec (minutes) to ms
+          const recommendedTimeoutMs = rec.recommended_timeout_minutes * 60 * 1000;
+          const safeTimeout = Math.min(DEFAULT_INACTIVITY_MS, recommendedTimeoutMs);
+          
+          console.log(`[PolicyEngine] AI Recommendation: ${rec.recommended_timeout_minutes}min (${rec.risk_level}) - "${rec.reason}"`);
+          console.log(`[PolicyEngine] Timeout Decision: Baseline=${DEFAULT_INACTIVITY_MS/1000}s, AI=${recommendedTimeoutMs/1000}s, Final=${safeTimeout/1000}s`);
+          
+          if (safeTimeout !== this.currentTimeout) {
+              console.log(`[PolicyEngine] ⚠️ TIMEOUT CHANGED: ${this.currentTimeout/1000}s -> ${safeTimeout/1000}s`);
+              this.currentTimeout = safeTimeout;
+              this.startInactivityTimer(); // Restart timer with new duration
+          } else {
+              console.log(`[PolicyEngine] ✓ Timeout unchanged at ${safeTimeout/1000}s`);
+          }
+
+          this.currentPolicy = rec;
+          this.emit('session-info-updated', this.getSessionInfo());
+      } catch (error: any) {
+          // Gracefully handle API errors (rate limits, network issues, etc.)
+          console.warn('[PolicyEngine] Failed to update policy (using baseline):', error.message || error);
+          // Continue with current policy - security is maintained by baseline defaults
+      }
   }
 
   // --- Trust Assertions ---
@@ -212,7 +298,14 @@ export class SessionManager extends EventEmitter {
            this.uploadUrl = null;
       }
 
+
+
+      this.currentTimeout = DEFAULT_INACTIVITY_MS;
       this.startInactivityTimer();
+      
+      // Start AI Policy Heartbeat (every 5 minutes to conserve API quota)
+      this.policyInterval = setInterval(() => this.updateSafetyPolicy(), 300 * 1000);
+      this.updateSafetyPolicy(); // Initial check - runs immediately
       
       if (this.sessionType === 'TASK' && this.sessionPath) {
           this.taskBrowser = new TaskBrowser(this.sessionPath, this.activeSessionId!);
@@ -294,6 +387,10 @@ export class SessionManager extends EventEmitter {
       await this.auditLogger.logWipeStart();
       
       this.clearInactivityTimer();
+      if (this.policyInterval) {
+          clearInterval(this.policyInterval);
+          this.policyInterval = null;
+      }
       this.clearInactivityTimer();
       this.printManager.closeAll();
       this.viewerManager.closeAll();
@@ -358,7 +455,7 @@ export class SessionManager extends EventEmitter {
       this.clearInactivityTimer();
       this.inactivityTimer = setTimeout(() => {
           this.endSession('TIMEOUT');
-      }, INACTIVITY_TIMEOUT_MS);
+      }, this.currentTimeout);
   }
 
   private clearInactivityTimer() {
@@ -370,6 +467,7 @@ export class SessionManager extends EventEmitter {
 
   public notifyActivity() {
       if (this.state === 'ACTIVE_SESSION') {
+          this.lastActivityTime = Date.now();
           this.startInactivityTimer();
       }
   }
@@ -458,7 +556,10 @@ export class SessionManager extends EventEmitter {
       state: this.state,
       mode: this.mode,
       type: this.sessionType,
-      uploadUrl: this.uploadUrl
+      uploadUrl: this.uploadUrl,
+      riskLevel: this.currentPolicy?.risk_level || "low",
+      aiPolicyReason: this.currentPolicy?.reason || "Baseline Protection",
+      currentTimeoutSeconds: Math.round(this.currentTimeout / 1000)
     };
   }
 }
