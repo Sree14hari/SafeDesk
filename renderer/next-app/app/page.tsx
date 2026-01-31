@@ -24,7 +24,6 @@ export default function Home() {
   useEffect(() => {
     if (window.electronAPI) {
       window.electronAPI.onSessionStatus((_event, value) => {
-          // If Status update is about Destruction, make it prominent (handled by UI rendering below if needed)
           setStatus(value);
       });
 
@@ -38,7 +37,7 @@ export default function Home() {
           setSessionInfo({ id: null, startTime: null, totalSize: 0, fileCount: 0 });
           setFiles([]);
           setStatus('No Active Session');
-          setEndReason(`Session Ended (${reason}). Data has been securely overwritten and destroyed.`);
+          setEndReason(`Session Ended (${reason}). Original source files and session copies have been securely destroyed.`);
       });
 
       window.electronAPI.onFilesUpdated((_event, newFiles) => {
@@ -56,12 +55,13 @@ export default function Home() {
   const handleStartSession = () => {
     if (window.electronAPI) {
       window.electronAPI.startSession();
-      setStatus('Initializing Secure Workspace...');
+      setStatus('Initializing Secure Disposition Workspace...');
     }
   };
 
   const handleEndSession = () => {
-      if (window.electronAPI && confirm("Are you sure? This will IRRECOVERABLY DESTROY all session data.")) {
+      // EXPLICIT WARNING
+      if (window.electronAPI && confirm("⚠️ WARNING: This will PERMANENTLY WIPE the ORIGINAL files from your computer (e.g., Desktop/Documents) AND the session copies.\n\nAre you sure you want to destroy these files?")) {
         window.electronAPI.endSession();
       }
   };
@@ -91,16 +91,16 @@ export default function Home() {
       {/* Header */}
       <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #eaeaea', padding: '15px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '24px', height: '24px', background: sessionInfo.id ? '#28a745' : '#ccc', borderRadius: '50%' }}></div>
-            <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>SecureEngine</h1>
+            <div style={{ width: '24px', height: '24px', background: sessionInfo.id ? '#d32f2f' : '#ccc', borderRadius: '50%' }}></div>
+            <h1 style={{ margin: 0, fontSize: '20px', color: '#333' }}>SecureEngine <span style={{fontSize:'12px', fontWeight:'normal', background:'#eee', padding:'2px 6px', borderRadius:'4px'}}>DISPOSAL MODE</span></h1>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>Status: <strong>{status}</strong></div>
             {sessionInfo.id && (
                 <button 
                     onClick={handleEndSession} 
-                    style={{ background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px' }}>
-                    End Session
+                    style={{ background: '#d32f2f', color: 'white', border: 'none', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                    DESTROY SESSION & FILES
                 </button>
             )}
         </div>
@@ -110,16 +110,16 @@ export default function Home() {
       <main style={{ flex: 1, padding: '30px', display: 'flex', flexDirection: 'column', maxWidth: '1000px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
         
         {/* Trust Banner */}
-        <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #b9e6fb', padding: '12px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', color: '#006494' }}>
-            <span style={{ fontSize: '18px' }}>🔐</span>
-            <span style={{ fontSize: '14px', fontWeight: 500 }}>Safe Workspace: Files imported here are isolated in a temporary session and never saved to your standard folders.</span>
+        <div style={{ backgroundColor: '#fff3cd', border: '1px solid #ffeeba', padding: '12px 20px', borderRadius: '8px', marginBottom: '25px', display: 'flex', alignItems: 'center', gap: '10px', color: '#856404' }}>
+            <span style={{ fontSize: '18px' }}>⚠️</span>
+            <span style={{ fontSize: '14px', fontWeight: 600 }}>Secure Disposition: Any file imported here will be WIPED from your computer when the session ends.</span>
         </div>
 
         {endReason && !sessionInfo.id && (
             <div style={{ marginBottom: '20px', padding: '20px', background: '#ffebee', color: '#b71c1c', borderRadius: '8px', border: '1px solid #ffcdd2', display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontSize: '24px' }}>🗑️</span>
                 <div>
-                    <h3 style={{ margin: '0 0 5px 0' }}>Session Closed</h3>
+                    <h3 style={{ margin: '0 0 5px 0' }}>Destruction Complete</h3>
                     <p style={{ margin: 0 }}>{endReason}</p>
                 </div>
             </div>
@@ -128,8 +128,8 @@ export default function Home() {
         {!sessionInfo.id ? (
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', flexDirection: 'column' }}>
             <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'center', maxWidth: '400px' }}>
-                <h2 style={{ marginTop: 0 }}>Start a New Session</h2>
-                <p style={{ color: '#666', marginBottom: '30px' }}>Create a secure, isolated environment for handling sensitive documents.</p>
+                <h2 style={{ marginTop: 0 }}>Start Disposition Session</h2>
+                <p style={{ color: '#666', marginBottom: '30px' }}>Securely review and then permanently destroy sensitive documents.</p>
                 <button 
                   onClick={handleStartSession}
                   style={{
@@ -162,7 +162,7 @@ export default function Home() {
 
             {/* Action Bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-              <h2 style={{ margin: 0, fontSize: '18px' }}>Session Files</h2>
+              <h2 style={{ margin: 0, fontSize: '18px' }}>Tracking for Destruction</h2>
               <button 
                 onClick={handleImport}
                 disabled={isImporting}
@@ -180,22 +180,22 @@ export default function Home() {
                   gap: '8px'
                 }}
               >
-                {isImporting ? 'Importing...' : '+ Import Files'}
+                {isImporting ? 'Importing...' : '+ Add Files to Destroy'}
               </button>
             </div>
 
             {/* File List */}
             <div style={{ flex: 1, background: '#fff', borderRadius: '8px', border: '1px solid #eaeaea', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '12px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', fontSize: '12px', fontWeight: 600, color: '#666', display: 'flex' }}>
-                  <div style={{ flex: 1 }}>NAME</div>
+              <div style={{ padding: '12px 20px', borderBottom: '1px solid #eaeaea', background: '#fafafa', fontSize: '12px', fontWeight: 600, color: '#d32f2f', display: 'flex' }}>
+                  <div style={{ flex: 1 }}>FILE (MARKED FOR DELETION)</div>
                   <div style={{ width: '100px', textAlign: 'right' }}>SIZE</div>
               </div>
               
               <div style={{ overflowY: 'auto', flex: 1 }}>
                   {files.length === 0 ? (
                     <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
-                      <p>No files imported yet.</p>
-                      <p style={{ fontSize: '13px' }}>Click "Import Files" to copy documents safely into this workspace.</p>
+                      <p>No files tracked.</p>
+                      <p style={{ fontSize: '13px' }}>Import files to mark them for secure destruction.</p>
                     </div>
                   ) : (
                      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -209,7 +209,7 @@ export default function Home() {
                            fontSize: '14px'
                          }}>
                            <span style={{ fontWeight: 500, color: '#333' }}>{file.name}</span>
-                           <span style={{ color: '#666', fontFamily: 'monospace' }}>{formatBytes(file.size)}</span>
+                           <span style={{ color: '#d32f2f', fontFamily: 'monospace', fontSize:'11px', border:'1px solid #d32f2f', padding:'2px 4px', borderRadius:'3px' }}>WILL BE WIPED</span>
                          </li>
                        ))}
                      </ul>

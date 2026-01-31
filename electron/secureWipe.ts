@@ -2,46 +2,83 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as crypto from 'crypto';
 
+const RETRY_ATTEMPTS = 5;
+const RETRY_DELAY_MS = 300;
+
+async function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRetry<T>(operation: () => Promise<T>, opName: string): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i < RETRY_ATTEMPTS; i++) {
+        try {
+            return await operation();
+        } catch (err: any) {
+            lastError = err;
+            if (err.code === 'EBUSY' || err.code === 'EPERM' || err.code === 'EACCES') {
+                console.log(`[SecureWipe] ${opName} locked/busy (Attempt ${i + 1}/${RETRY_ATTEMPTS}). Retrying...`);
+                await sleep(RETRY_DELAY_MS);
+            } else {
+                throw err;
+            }
+        }
+    }
+    throw lastError;
+}
+
 export async function secureDeleteFile(filePath: string): Promise<void> {
+    // If file doesn't exist, we consider it "wiped"
+    if (!await fs.pathExists(filePath)) return;
+
     try {
         const stats = await fs.stat(filePath);
         const size = stats.size;
 
         if (size > 0) {
             // 1. Overwrite with random bytes
-            const fd = await fs.open(filePath, 'r+');
-            // Using a chunked approach for large files to avoid memory spikes
-            const CHUNK_SIZE = 64 * 1024; // 64KB
-            let bytesWritten = 0;
-            
-            while (bytesWritten < size) {
-                const remaining = size - bytesWritten;
-                const toWrite = Math.min(remaining, CHUNK_SIZE);
-                const buffer = crypto.randomBytes(toWrite);
-                await fs.write(fd, buffer, 0, toWrite, bytesWritten);
-                bytesWritten += toWrite;
-            }
+            // Ensure we handle file open/close robustly
+            let fd: number | null = null;
+            try {
+                fd = await withRetry(() => fs.open(filePath, 'r+'), `Open ${path.basename(filePath)}`);
+                
+                const CHUNK_SIZE = 64 * 1024; // 64KB
+                let bytesWritten = 0;
+                
+                while (bytesWritten < size) {
+                    const remaining = size - bytesWritten;
+                    const toWrite = Math.min(remaining, CHUNK_SIZE);
+                    const buffer = crypto.randomBytes(toWrite);
+                    await fs.write(fd, buffer, 0, toWrite, bytesWritten);
+                    bytesWritten += toWrite;
+                }
 
-            // 2. Flush buffers to physical disk
-            await fs.fsync(fd);
-            await fs.close(fd);
+                await fs.fsync(fd);
+            } finally {
+                if (fd !== null) await fs.close(fd);
+            }
         }
 
-        // 3. Rename to random string (destroy filename metadata)
+        // 2. Rename
         const dir = path.dirname(filePath);
         const randomName = crypto.randomBytes(8).toString('hex');
         const newPath = path.join(dir, randomName);
-        await fs.rename(filePath, newPath);
-
-        // 4. Delete
-        await fs.unlink(newPath);
         
-        console.log(`[SecureWipe] Destroyed: ${path.basename(filePath)}`);
+        await withRetry(() => fs.rename(filePath, newPath), 'Rename Obfuscation');
+
+        // 3. Delete
+        await withRetry(() => fs.unlink(newPath), 'Final Unlink');
+        
+        console.log(`[SecureWipe] DESTROYED: ${filePath}`);
 
     } catch (error) {
         console.error(`[SecureWipe] Failed to wipe ${filePath}:`, error);
-        // Fallback: Try force delete if overwrite failed (better than nothing)
-        await fs.remove(filePath).catch(e => console.error('Force remove failed:', e));
+        // Fallback: Force remove (fs-extra)
+        try {
+            await fs.remove(filePath);
+        } catch (e) {
+            console.error('[SecureWipe] Absolute failure to remove:', filePath, e);
+        }
     }
 }
 
@@ -55,7 +92,6 @@ export async function secureWipeSession(dirPath: string): Promise<boolean> {
         
         for (const file of files) {
             const fullPath = path.join(dirPath, file);
-            // Recursively handle directories if we supported subfolders (Phase 1 flattened them, but good practice)
             if ((await fs.stat(fullPath)).isDirectory()) {
                  await secureWipeSession(fullPath);
             } else {
@@ -63,16 +99,19 @@ export async function secureWipeSession(dirPath: string): Promise<boolean> {
             }
         }
 
-        // Remove the empty directory
-        await fs.rmdir(dirPath);
+        // Drop the directory
+        await withRetry(() => fs.rmdir(dirPath), 'Remove Session Dir');
         
-        // Verification Phase
         if (fs.existsSync(dirPath)) {
-            console.error('[SecureWipe] CRITICAL: Directory still exists after wipe!');
-            return false;
+             // Final sanity check - sometimes slight delay in FS update
+             await sleep(200);
+             if (fs.existsSync(dirPath)) {
+                 console.error('[SecureWipe] CRITICAL: Directory persists.');
+                 return false;
+             }
         }
 
-        console.log('[SecureWipe] Session destroyed successfully.');
+        console.log('[SecureWipe] Clean.');
         return true;
         
     } catch (error) {

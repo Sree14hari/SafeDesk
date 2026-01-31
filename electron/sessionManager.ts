@@ -2,12 +2,12 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import { PersistenceManager } from './persistenceManager';
 import { EventEmitter } from 'events';
-import { secureWipeSession } from './secureWipe';
+import { secureWipeSession, secureDeleteFile } from './secureWipe';
 
 const BASE_DIR = 'C:\\SafeDesk\\sessions';
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
-export interface FileMetadata { name: string; size: number; }
+export interface FileMetadata { name: string; size: number; originalPath: string; }
 export interface SessionInfo { id: string | null; startTime: number | null; totalSize: number; fileCount: number; }
 
 export class SessionManager extends EventEmitter {
@@ -20,6 +20,7 @@ export class SessionManager extends EventEmitter {
 
   private inactivityTimer: NodeJS.Timeout | null = null;
   private persistence: PersistenceManager;
+  private isWiping: boolean = false;
 
   constructor() {
     super();
@@ -32,24 +33,19 @@ export class SessionManager extends EventEmitter {
   public async recoverSessions() {
       const state = this.persistence.loadState();
       
-      // Check if there was an active session that wasn't closed properly
       if (state.lastSessionId && state.path && fs.existsSync(state.path)) {
-          console.warn(`[SessionManager] Detected crash/unsafe exit for session ${state.lastSessionId}. Initiating Secure Wipe.`);
-          
-          const success = await secureWipeSession(state.path);
-          
-          if (success) {
-             console.log('[SessionManager] Recovery wipe successful.');
-             this.persistence.saveState({ ...state, status: 'ENDED' });
-          } else {
-             console.error('[SessionManager] Recovery wipe partial/failed.');
-          }
-      } else {
-          console.log('[SessionManager] Clean startup. No active sessions recovered.');
+          console.warn(`[SessionManager] Detected crash. Wiping zombie session ${state.lastSessionId}.`);
+          this.isWiping = true;
+          await secureWipeSession(state.path);
+          this.persistence.saveState({ ...state, status: 'ENDED' });
+          this.isWiping = false;
       }
   }
 
   public async startSession(): Promise<string> {
+    if (this.isWiping) {
+        throw new Error('System is currently performing a secure wipe. Please wait.');
+    }
     if (this.activeSessionId) {
         throw new Error('Session already active');
     }
@@ -87,26 +83,36 @@ export class SessionManager extends EventEmitter {
       if (!this.activeSessionId || !this.sessionPath) return;
 
       console.log(`[SessionManager] Ending session ${this.activeSessionId}. Reason: ${reason}`);
-      this.emit('session-wiping'); // Notify UI to show spinner/cleaning state
+      this.emit('session-wiping');
+      this.isWiping = true;
       
       this.clearInactivityTimer();
       
       const oldId = this.activeSessionId;
       const oldPath = this.sessionPath;
+      const filesToDestroy = [...this.importedFiles]; // Snapshot files to destroy
 
-      // Update State (Memory)
+      // Reset State Early (Memory)
       this.activeSessionId = null;
       this.sessionPath = null;
       this.importedFiles = [];
       this.totalSize = 0;
       this.startTime = null;
 
-      // EXECUTE SECURE WIPE
+      // 1. Wipe Source Files (Destructive requirement)
+      if (filesToDestroy.length > 0) {
+          console.log('[SessionManager] DESTROYING ORIGINAL SOURCE FILES...');
+          for (const file of filesToDestroy) {
+             console.log(`[SessionManager] Securely Wiping Source: ${file.originalPath}`);
+             await secureDeleteFile(file.originalPath);
+          }
+      }
+
+      // 2. Wipe Session Workspace
       const wipeSuccess = await secureWipeSession(oldPath);
       
       const status = wipeSuccess ? 'ENDED' : 'WIPE_FAILED';
 
-      // Persist Status
       this.persistence.saveState({
           lastSessionId: oldId,
           path: oldPath,
@@ -114,7 +120,7 @@ export class SessionManager extends EventEmitter {
           timestamp: Date.now()
       });
 
-      // Emit event for Main process to handle (e.g., notify UI)
+      this.isWiping = false;
       this.emit('session-ended', reason);
   }
 
@@ -159,7 +165,7 @@ export class SessionManager extends EventEmitter {
       throw new Error('No active session');
     }
 
-    this.notifyActivity(); // Reset timer on import
+    this.notifyActivity(); 
 
     const newFiles: FileMetadata[] = [];
 
@@ -173,12 +179,17 @@ export class SessionManager extends EventEmitter {
         
         await fs.copy(src, dest);
         
-        const metadata: FileMetadata = { name: safeName, size: stats.size };
+        // Track Original Path for Destruction
+        const metadata: FileMetadata = { 
+            name: safeName, 
+            size: stats.size,
+            originalPath: src 
+        };
         newFiles.push(metadata);
         this.importedFiles.push(metadata);
         this.totalSize += stats.size;
 
-        console.log(`[SessionManager] Imported: ${safeName}`);
+        console.log(`[SessionManager] Imported: ${safeName} (Source tracked: ${src})`);
       } catch (error) {
         console.error(`[SessionManager] Failed to import ${src}:`, error);
       }
