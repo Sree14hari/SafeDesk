@@ -380,9 +380,34 @@ export class SessionManager extends EventEmitter {
 
       console.log(`[SessionManager] Ending session ${this.activeSessionId}. Reason: ${reason}`);
       
-      // Stop Upload Server Immediately
-      this.uploadServer.stop();
-      this.uploadUrl = null;
+      // Calculate Stats for Report
+      const durationMs = Date.now() - (this.startTime || Date.now());
+      const durationStr = Math.floor(durationMs / 60000) + 'm ' + Math.floor((durationMs % 60000) / 1000) + 's';
+      
+      // Scan for actual files on disk to report accurate count (including downloads)
+      let fileList: string[] = [];
+      try {
+          if (this.sessionPath && await fs.pathExists(this.sessionPath)) {
+              const filesOnDisk = await fs.readdir(this.sessionPath);
+              // Filter out system files or hidden files if needed, but for now count all user content
+              fileList = filesOnDisk.filter(f => !f.startsWith('.'));
+          }
+      } catch (e) {
+          console.warn('[SessionManager] Failed to scan final file count:', e);
+          // Fallback to imported list names if disk scan fails
+          fileList = this.importedFiles.map(f => f.name);
+      }
+      
+      const reportData = {
+          sessionId: this.activeSessionId ? this.activeSessionId.split('_')[2] : '???',
+          filesWiped: fileList.length,
+          fileList: fileList,
+          duration: durationStr,
+          timestamp: Date.now()
+      };
+
+      // Switch to Report Mode (Keep server alive for mobile confirmation)
+      this.uploadServer.switchToReportMode(reportData);
       
       await this.transitionTo('DESTRUCTION_IN_PROGRESS', reason);
       this.emit('session-wiping');
@@ -440,7 +465,7 @@ export class SessionManager extends EventEmitter {
            // Auto-transit to IDLE?
            await this.transitionTo('IDLE', 'Ready');
            
-           this.emit('session-ended', 'COMPLETED', []);
+           this.emit('session-ended', 'COMPLETED', [], this.uploadUrl);
        } else {
            this.auditLogger.logWipeResult(false, 1);
            // Stuck in destruction? Or WIPE_FAILED?

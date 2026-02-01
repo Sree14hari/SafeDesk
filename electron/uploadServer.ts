@@ -28,9 +28,16 @@ export class UploadServer extends EventEmitter {
         this.setupRoutes();
     }
 
+
+    private reportData: any | null = null;
+
     private setupRoutes() {
         // 1. Mobile Client Page
         this.app.get('/upload', (req, res) => {
+            if (this.reportData) {
+                return res.send(this.getReportPageHtml(this.reportData));
+            }
+
             const token = req.query.token as string;
             const clientIp = req.socket.remoteAddress || req.ip;
 
@@ -59,6 +66,8 @@ export class UploadServer extends EventEmitter {
         // 2. File Upload Handler
         this.app.post('/upload', (req, res) => {
             const token = req.query.token as string;
+
+            if (this.reportData) return res.status(410).send("Session Ended.");
 
             if (!token || token !== this.activeToken || !this.sessionPath) {
                 return res.status(403).send('Session invalid or expired.');
@@ -111,6 +120,8 @@ export class UploadServer extends EventEmitter {
 
         // 3. Polling Endpoint for Print Requests
         this.app.get('/check-print', (req, res) => {
+            if (this.reportData) return res.json({ ended: true }); // Signal frontend to reload
+
             const token = req.query.token as string;
             if (!token || token !== this.activeToken) return res.status(403).json({ error: 'Auth failed' });
 
@@ -167,6 +178,7 @@ export class UploadServer extends EventEmitter {
             this.uploadUsed = false;
             this.pendingApproval = null;
             this.connectedIp = null;
+            this.reportData = null;
 
             // Start on random port
             this.server = this.app.listen(0, () => {
@@ -184,6 +196,13 @@ export class UploadServer extends EventEmitter {
         });
     }
 
+    public switchToReportMode(data: any) {
+        this.reportData = data;
+        this.activeToken = null; // Invalidate token to prevent connection reuse for upload
+        this.sessionPath = null; // Unlink session path
+        console.log('[UploadServer] Switched to REPORT MODE');
+    }
+
     public stop() {
         if (this.server) {
             this.server.close();
@@ -192,12 +211,63 @@ export class UploadServer extends EventEmitter {
             this.activeToken = null;
             this.sessionPath = null;
             this.uploadUsed = false;
+            this.reportData = null;
             if (this.pendingApproval) {
                 this.pendingApproval.resolve(false); // Reject explicit pending
                 this.pendingApproval = null;
             }
             console.log('[UploadServer] Stopped.');
         }
+    }
+
+    private getReportPageHtml(data: any) {
+        return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Session Report</title>
+             <style>
+                body { font-family: -apple-system, system-ui, sans-serif; background: #e6f7ff; color: #000; display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; margin:0; padding: 20px; box-sizing:border-box; }
+                .card { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; border: 2px solid #1890ff; }
+                .icon { font-size: 60px; color: #52c41a; margin-bottom: 20px; }
+                h1 { margin: 0 0 10px 0; font-size: 24px; }
+                p { color: #555; margin: 5px 0; font-size: 14px; }
+                .stats { margin-top: 20px; text-align: left; background: #f5f5f5; padding: 15px; border-radius: 10px; }
+                .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #ddd; }
+                .row:last-child { border: none; }
+                .lbl { font-weight: 600; color: #666; }
+                .val { font-weight: 700; color: #333; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="icon">🛡️</div>
+                <h1>Everything Wiped</h1>
+                <p>Your session data has been securely destroyed from the laptop.</p>
+                
+                <div class="stats">
+                    <div class="row"><span class="lbl">Session ID</span> <span class="val">${data.sessionId || 'N/A'}</span></div>
+                    <div class="row"><span class="lbl">Files Wiped</span> <span class="val">${data.filesWiped}</span></div>
+                    <div class="row"><span class="lbl">Session Time</span> <span class="val">${data.duration}</span></div>
+                    <div class="row"><span class="lbl">Completed</span> <span class="val">${new Date().toLocaleTimeString()}</span></div>
+                    
+                    ${data.fileList && data.fileList.length > 0 ? `
+                        <div style="margin-top:15px; text-align:left; font-size:12px; color:#666; max-height:100px; overflow-y:auto; border-top:1px solid #ddd; padding-top:10px;">
+                            <div style="font-weight:700; margin-bottom:5px;">WIPED FILES:</div>
+                            ${data.fileList.map((f:string) => `<div>• ${f}</div>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+                
+                 <div style="margin-top: 20px; color: #1890ff; font-weight: bold; font-size: 13px;">
+                    SAFE TO DISCONNECT
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
     }
 
     private getMobilePageHtml(token: string, isUploaded: boolean = false) {
@@ -285,10 +355,12 @@ export class UploadServer extends EventEmitter {
                 async function checkStatus() {
                     try {
                         const res = await fetch(\`/check-print?token=\${token}\`);
-                        // Handle 403 (Session Ended) by reloading to show error/closed
-                        if (res.status === 403) location.reload(); 
-                        
+                         
+                        // If session report exists, reload to see it
                         const data = await res.json();
+                        if (data.ended) { window.location.reload(); return; }
+
+                        if (res.status === 403) location.reload(); 
                         
                         const overlay = document.getElementById('approvalOverlay');
                         if (data.pending) {
@@ -321,7 +393,7 @@ export class UploadServer extends EventEmitter {
                     
                     try {
                          await fetch(\`/end-session?token=\${token}\`, { method: 'POST' });
-                         document.body.innerHTML = '<div style="text-align:center; padding: 40px;"><h1>Session Ended</h1><p>Data securely destroyed.</p></div>';
+                         // The server will switch to report mode and subsequent polling/reloads will show the report
                     } catch (e) {
                          alert('Failed to end session');
                     }

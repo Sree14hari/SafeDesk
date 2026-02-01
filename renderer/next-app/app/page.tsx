@@ -60,6 +60,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [endReason, setEndReason] = useState<string | null>(null);
   const [wipeFailures, setWipeFailures] = useState<string[]>([]);
+  const [wipedReportUrl, setWipedReportUrl] = useState<string | null>(null);
   
   // Phase 5 State
   const [residueFiles, setResidueFiles] = useState<ResidueFile[]>([]);
@@ -88,12 +89,14 @@ export default function Home() {
         setFiles([]); 
         setEndReason(null);
         setWipeFailures([]);
+        setWipedReportUrl(null);
       };
 
-      const handleSessionEnded = (_event: any, reason: string, failures: string[]) => {
+      const handleSessionEnded = (_event: any, reason: string, failures: string[], reportUrl: string | null) => {
           setSessionInfo({ id: null, startTime: null, totalSize: 0, fileCount: 0 });
           setFiles([]);
           setStatus('No Active Session');
+          setWipedReportUrl(reportUrl);
           
           if (failures && failures.length > 0) {
               setEndReason(`Session Ended (${reason}). WARNING: Some files could not be destroyed.`);
@@ -351,11 +354,25 @@ export default function Home() {
         )}
 
         {endReason && !sessionInfo.id && wipeFailures.length === 0 && (
-            <div className="bh-card" style={{ marginBottom: '24px', borderLeft: '8px solid var(--bh-green)', display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div className="bh-card" style={{ marginBottom: '24px', borderLeft: '8px solid var(--bh-green)', display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
                 <CheckCircle size={40} color="green" />
                 <div>
                     <h3 style={{ margin: '0 0 5px 0' }}>DESTRUCTION COMPLETE</h3>
                     <p style={{ margin: 0 }}>{endReason}</p>
+                    
+                    {wipedReportUrl && (
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '16px', background: '#f6ffed', border: '1px solid #b7eb8f', padding: '10px', borderRadius: '8px' }}>
+                            <div style={{ background: 'white', padding: '5px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                                <img src={wipedReportUrl} alt="Wipe Report QR" style={{ width: '80px', height: '80px', display: 'block' }} />
+                            </div>
+                            <div>
+                                <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', textTransform: 'uppercase', color: '#389e0d' }}>Scan for Compliance Report</h4>
+                                <p style={{ fontSize: '11px', margin: 0, color: '#555', maxWidth: '300px' }}>
+                                    Your session data has been wiped. Scan this code to view and save the compliance report on your mobile device.
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         )}
