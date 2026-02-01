@@ -1,25 +1,55 @@
-# Secure Electron App (Phase 0)
+# SafeDesk (SecureEngine for Internet Cafe and PrintShops)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Framework](https://img.shields.io/badge/framework-Electron-47848F)
+![Frontend](https://img.shields.io/badge/frontend-Next.js-black)
+![Language](https://img.shields.io/badge/language-TypeScript-blue)
+![Security](https://img.shields.io/badge/security-Forensic--Grade%20Wipe-red)
+![Architecture](https://img.shields.io/badge/architecture-Session--Based-orange)
+![Deployment](https://img.shields.io/badge/deployment-Offline%20Ready-green)
+![Build](https://img.shields.io/badge/build-EXE%20Installer-success)
 
-A secure Windows desktop application foundation using Electron and Next.js.
+## Overview
 
-## Architecture
+SafeDesk (SecureEngine) is a **forensically secure, session-based public workspace system** designed for shared computer environments such as internet cafés, service centers, libraries, and public kiosks.
 
-- **Main Process**: Electron (Secure, Node Integration Disabled)
-- **Renderer**: Next.js (Static Export, Offline Support)
-- **IPC**: Context Isolation used for secure communication.
+The system enables users to perform sensitive tasks—such as document printing, file uploads, and web browsing—within a **fully isolated, ephemeral session** that leaves **zero residual data** on the host machine after completion. All user activity is confined to a temporary workspace that is **automatically and irreversibly destroyed** at the end of each session.
 
-## Setup
+Unlike traditional public computer solutions that rely on trust-based cleanup mechanisms, SafeDesk introduces a **proof-based security model**. After every session, users receive **verifiable confirmation of data destruction** through a QR-based compliance report, ensuring transparency and trust.
 
-1. `npm install`
-2. `npm run dev` (Starts Next.js and Electron concurrently)
+SafeDesk operates entirely **offline**, without cloud services or persistent backends, and is packaged as a **standalone Windows application**, making it easy to deploy while maintaining strong security guarantees.
 
-## Structure
+## Tech Stack
 
-- `/electron`: Main process and Preload scripts.
-- `/renderer/next-app`: Next.js source code.
+### Core Platform
+- **Electron** – Desktop application framework for building cross-platform native applications using web technologies
+- **Node.js** – Runtime environment for backend logic and system-level operations
 
-## Security
+### Frontend (Renderer Process)
+- **Next.js** – UI framework used for building the interactive user interface (statically exported)
+- **React** – Component-based UI development
+- **TypeScript** – Type-safe development for improved reliability and maintainability
 
-- `nodeIntegration: false`
-- `contextIsolation: true`
-- `sandbox: true`
+### Backend / System Layer (Main Process)
+- **TypeScript** – Core language for session management, security logic, and system orchestration
+- **Electron Main Process APIs** – File system access, process control, and OS-level integrations
+
+### Security & Data Handling
+- **Custom Secure Wipe Engine** – Multi-stage data sanitization (overwrite, rename obfuscation, unlink, force delete)
+- **Ephemeral Session Directories** – Session-bound, temporary storage ensuring zero persistence
+- **Memory-Only Browser Partition** – Prevents cache, cookies, and credential storage
+
+### AI & Policy Engine
+- **Google Gemini 2.5 Flash** (via OpenRouter) – AI-assisted policy advisor for dynamic security decisions
+- **Policy Engine** – Rule-based enforcement combined with AI recommendations
+
+### Mobile & Networking
+- **Local HTTP Server** – Secure, ephemeral upload server for QR-based mobile file transfers
+- **QR Code Integration** – Enables fast, contactless multi-device connectivity
+
+### Build & Deployment
+- **Electron Builder** – Packaging and distribution as a standalone Windows executable
+- **NSIS** – Installer generation for Windows
+- **npm** – Dependency management and build scripting
+
+### Operating System
+- **Windows** – Primary target platform for deployment
