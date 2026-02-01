@@ -1,3 +1,4 @@
+import { CheckCircle } from 'lucide-react';
 
 function StatusItem({ label, value }: { label: string, value: string }) {
     return (
