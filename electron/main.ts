@@ -3,11 +3,13 @@ import * as path from 'path';
 import { SessionManager } from './sessionManager';
 import { ScanManager } from './scanManager';
 import { ResidueScanner, ResidueFile } from './residueScanner';
+import { AuditLogger } from './auditLogger';
 
 let mainWindow: BrowserWindow | null = null;
 const sessionManager = new SessionManager();
 const scanManager = new ScanManager();
 const residueScanner = new ResidueScanner();
+const auditLogger = new AuditLogger();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -222,6 +224,10 @@ app.whenReady().then(async () => {
           console.error('[Main] Scan failed:', err);
           event.sender.send('session:status', `Scan Error: ${err.message}`);
       }
+  });
+
+  ipcMain.handle('audit:get-logs', async () => {
+      return await auditLogger.getLogs(50);
   });
 
   ipcMain.on('files:trigger-import', async (event) => {

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useLanguage } from './LanguageContext';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { 
@@ -19,7 +20,9 @@ import {
   Lock,
   Search,
   Smartphone,
-  Globe
+  Globe,
+  Settings,
+  History
 } from 'lucide-react';
 
 interface SessionInfo {
@@ -46,6 +49,7 @@ interface ResidueFile {
 }
 
 export default function Home() {
+  const router = useRouter(); // Hook
   const { t, language } = useLanguage();
   const [status, setStatus] = useState('Ready');
   const [sessionInfo, setSessionInfo] = useState<SessionInfo>({
@@ -262,6 +266,25 @@ export default function Home() {
                     </button>
                     </>
                 )}
+                <button 
+                  onClick={() => router.push('/settings')} 
+                  style={{
+                    background:'none', 
+                    border:'none', 
+                    cursor:'pointer', 
+                    padding:'8px', 
+                    borderRadius:'8px', 
+                    display:'flex', 
+                    alignItems:'center', 
+                    justifyContent:'center',
+                    color: '#555',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#f0f0f0'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                >
+                    <Settings size={20} />
+                </button>
                 <LanguageSwitcher />
         </div>
       </header>
@@ -629,6 +652,7 @@ export default function Home() {
                 </div>
            </div>
         )}
+
     </div>
   );
 }
