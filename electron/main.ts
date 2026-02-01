@@ -104,13 +104,15 @@ app.whenReady().then(async () => {
       return await logger.getLogs();
   });
 
-  ipcMain.on('session:start', async (event) => {
+  ipcMain.on('session:start', async (event, type: any) => {
     try {
       if (sessionManager.getMode() === 'OWNER') {
           throw new Error("Cannot start session in Owner/Disposal Mode.");
       }
-      const sessionId = await sessionManager.startSession('PRINT'); // Default to PRINT for legacy/standard start
-      console.log(`Main Process: Session ${sessionId} started`);
+      // Validate type or default to PRINT
+      const sessionType = (type === 'TASK' || type === 'RAPID_PRINT') ? type : 'PRINT';
+      const sessionId = await sessionManager.startSession(sessionType);
+      console.log(`Main Process: Session ${sessionId} started (Type: ${sessionType})`);
       event.sender.send('session:created', sessionId);
       sendSessionInfo(event.sender);
     } catch (err: any) {

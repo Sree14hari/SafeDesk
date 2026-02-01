@@ -20,6 +20,7 @@ export class UploadServer extends EventEmitter {
         resolve: (allowed: boolean) => void, 
         fileName: string 
     } | null = null;
+    private multiDeviceAllowed: boolean = false;
 
     constructor() {
         super();
@@ -46,17 +47,20 @@ export class UploadServer extends EventEmitter {
             }
 
             // Single Device Lock
-            if (this.connectedIp && this.connectedIp !== clientIp) {
-                 return res.status(403).send(`
-                    <h1>Secure Channel Busy</h1>
-                    <p>Another device is already connected to this secure session.</p>
-                 `);
-            }
+            // Single Device Lock
+            if (!this.multiDeviceAllowed) {
+                if (this.connectedIp && this.connectedIp !== clientIp) {
+                    return res.status(403).send(`
+                        <h1>Secure Channel Busy</h1>
+                        <p>Another device is already connected to this secure session.</p>
+                    `);
+                }
 
-            // Lock to this IP
-            if (!this.connectedIp && clientIp) {
-                this.connectedIp = clientIp as string;
-                console.log(`[UploadServer] Secure channel locked to device: ${this.connectedIp}`);
+                // Lock to this IP
+                if (!this.connectedIp && clientIp) {
+                    this.connectedIp = clientIp as string;
+                    console.log(`[UploadServer] Secure channel locked to device: ${this.connectedIp}`);
+                }
             }
 
             const isUploaded = req.query.uploaded === 'true';
@@ -169,7 +173,7 @@ export class UploadServer extends EventEmitter {
         });
     }
 
-    public async start(sessionPath: string, token: string): Promise<string> {
+    public async start(sessionPath: string, token: string, allowMultiDevice: boolean = false): Promise<string> {
         return new Promise((resolve, reject) => {
             if (this.server) this.stop();
 
@@ -177,8 +181,10 @@ export class UploadServer extends EventEmitter {
             this.activeToken = token;
             this.uploadUsed = false;
             this.pendingApproval = null;
+
             this.connectedIp = null;
             this.reportData = null;
+            this.multiDeviceAllowed = allowMultiDevice;
 
             // Start on random port
             this.server = this.app.listen(0, () => {

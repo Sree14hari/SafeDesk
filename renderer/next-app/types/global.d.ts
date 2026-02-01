@@ -33,7 +33,7 @@ declare global {
 
   interface Window {
     electronAPI: {
-      startSession: () => void;
+      startSession: (type?: string) => void;
       endSession: () => void;
       triggerFileImport: () => void;
       printFile: (fileName: string) => void;

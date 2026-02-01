@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  startSession: () => ipcRenderer.send('session:start'),
+  startSession: (type?: string) => ipcRenderer.send('session:start', type),
   endSession: () => ipcRenderer.send('session:end'),
   triggerFileImport: () => ipcRenderer.send('files:trigger-import'),
   

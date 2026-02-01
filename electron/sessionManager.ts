@@ -25,7 +25,7 @@ export interface SessionInfo {
     fileCount: number; 
     state: SystemState; 
     mode: SystemMode; 
-    type: 'PRINT' | 'TASK'; 
+    type: 'PRINT' | 'TASK' | 'RAPID_PRINT'; 
     uploadUrl?: string | null;
     riskLevel?: "low" | "medium" | "high";
     aiPolicyReason?: string;
@@ -62,7 +62,7 @@ export class SessionManager extends EventEmitter {
   // Strict State Machine
   private state: SystemState = 'IDLE';
   private mode: SystemMode = 'CUSTOMER';
-  private sessionType: 'PRINT' | 'TASK' = 'PRINT';
+  private sessionType: 'PRINT' | 'TASK' | 'RAPID_PRINT' = 'PRINT';
 
   constructor() {
     super();
@@ -256,7 +256,7 @@ export class SessionManager extends EventEmitter {
       }
   }
 
-  public async startSession(type: 'PRINT' | 'TASK' = 'PRINT'): Promise<string> {
+  public async startSession(type: 'PRINT' | 'TASK' | 'RAPID_PRINT' = 'PRINT'): Promise<string> {
     if (this.mode === 'OWNER') {
         throw new Error("Cannot start Customer Session in Owner Mode.");
     }
@@ -293,7 +293,7 @@ export class SessionManager extends EventEmitter {
       // Start Upload Server
       const token = crypto.randomBytes(16).toString('hex');
       try {
-           const rawUrl = await this.uploadServer.start(this.sessionPath, token);
+           const rawUrl = await this.uploadServer.start(this.sessionPath, token, this.sessionType === 'RAPID_PRINT');
            this.uploadUrl = await QRCode.toDataURL(rawUrl);
            console.log(`[SessionManager] QR Code generated for: ${rawUrl}`);
       } catch (e) {
