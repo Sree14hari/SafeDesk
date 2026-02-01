@@ -23,7 +23,8 @@ import {
   Smartphone,
   Globe,
   Settings,
-  History
+  History,
+  Zap
 } from 'lucide-react';
 
 interface SessionInfo {
@@ -32,7 +33,7 @@ interface SessionInfo {
     totalSize: number;
     fileCount: number;
     uploadUrl?: string | null;
-    type?: 'PRINT' | 'TASK';
+    type?: 'PRINT' | 'TASK' | 'RAPID_PRINT';
     riskLevel?: "low" | "medium" | "high";
     aiPolicyReason?: string;
     currentTimeoutSeconds?: number;
@@ -145,6 +146,14 @@ export default function Home() {
     }
   };
 
+  const handleStartRapidSession = () => {
+    if (window.electronAPI) {
+      window.electronAPI.startSession('RAPID_PRINT');
+      setStatus('Initializing Rapid Print Session...');
+      setWipeFailures([]);
+    }
+  };
+
   const handleLaunchBrowser = () => {
       if (window.electronAPI) {
            window.electronAPI.launchTaskBrowser();
@@ -173,6 +182,16 @@ export default function Home() {
       if (window.electronAPI) {
           window.electronAPI.printFile(fileName);
       }
+  };
+
+  const handlePrintAll = () => {
+    if (window.electronAPI && files.length > 0) {
+        if (confirm(`Print all ${files.length} files?`)) {
+            files.forEach(file => {
+                window.electronAPI.printFile(file.name);
+            });
+        }
+    }
   };
 
   const handlePreview = (fileName: string) => {
@@ -488,12 +507,39 @@ export default function Home() {
                         {t('startTaskSession')}
                      </button>
                 </div>
-            </div>
 
+                </div>
 
-
-
-
+             {/* 4. Rapid Printing Card (Full Width) */}
+             <div className="bh-card" style={{ textAlign: 'center', padding: '60px', display: 'flex', flexDirection: 'column', marginTop: '24px', minHeight: '350px', justifyContent: 'center', alignItems: 'center', background: 'var(--bh-black)', color: 'white' }}>
+                     <div style={{width:'80px', height:'80px', background:'var(--bh-red)', borderRadius:'50%', marginBottom:'30px', display:'flex', alignItems:'center', justifyContent:'center', boxShadow: '0 0 20px rgba(255, 0, 0, 0.4)'}}>
+                        <Zap size={40} color="white" />
+                     </div>
+                     <h2 style={{ textTransform:'uppercase', fontWeight: 900, fontSize: '28px', marginBottom: '16px' }}>RAPID PRINT</h2>
+                     <p style={{ marginBottom: '40px', fontSize: '16px', maxWidth: '600px', opacity: 0.8 }}>
+                        Designed for high-traffic counters. Instantly create a shared session where multiple team members or customers can upload documents via QR at the same time. One-click batch printing for maximum efficiency.
+                     </p>
+                     <button 
+                        onClick={handleStartRapidSession}
+                        className="bh-btn"
+                        style={{ 
+                            width: '100%', 
+                            maxWidth: '400px',
+                            height: '60px',
+                            justifyContent: 'center', 
+                            background: 'var(--bh-red)', 
+                            color: 'white',
+                            fontSize: '18px',
+                            fontWeight: 800,
+                            border: 'none',
+                            borderRadius: '8px',
+                            cursor: 'pointer'
+                        }}
+                        disabled={wipeFailures.length > 0}  
+                     >
+                        START RAPID MODE
+                     </button>
+                </div>
             </div>
         )}
 
@@ -531,16 +577,41 @@ export default function Home() {
                 </div>
             )}
 
+            {sessionInfo.type === 'RAPID_PRINT' && (
+                <button 
+                  onClick={handlePrintAll}
+                  disabled={files.length === 0}
+                  className="bh-btn"
+                  style={{ 
+                      background: '#059669', 
+                      color: 'white',
+                      width: '100%',
+                      padding: '24px',
+                      fontSize: '20px',
+                      fontWeight: 800,
+                      justifyContent: 'center',
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 12px rgba(5, 150, 105, 0.3)',
+                      gap: '12px'
+                  }}
+                >
+                  <Zap size={24} /> ONE CLICK PRINT ({files.length} FILES)
+                </button>
+            )}
+
             {/* Action Bar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0, fontSize: '20px', textTransform:'uppercase', fontWeight: 800 }}>{t('trackingHeader')}</h2>
-              <button 
-                onClick={handleImport}
-                disabled={isProcessing}
-                className="bh-btn bh-btn-primary"
-              >
-                <FileUp size={16} /> {isProcessing ? t('lblProcessing') : t('lblAddFiles')}
-              </button>
+              
+              <div style={{display:'flex', gap:'12px'}}>
+                  <button 
+                    onClick={handleImport}
+                    disabled={isProcessing}
+                    className="bh-btn bh-btn-primary"
+                  >
+                    <FileUp size={16} /> {isProcessing ? t('lblProcessing') : t('lblAddFiles')}
+                  </button>
+              </div>
             </div>
 
             {/* File List */}
