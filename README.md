@@ -53,3 +53,60 @@ SafeDesk operates entirely **offline**, without cloud services or persistent bac
 
 ### Operating System
 - **Windows** – Primary target platform for deployment
+
+
+## File Structure
+
+The project follows a modular structure separating the **Electron core**, **UI renderer**, and **assets**, ensuring maintainability and clear responsibility boundaries.
+
+```markdown
+SecureEngine/
+├── assets/
+│   └── icon.png                 # Application icon (used in build/installer)
+│
+├── electron/
+│   ├── main.ts                  # Electron main process entry
+│   ├── preload.ts               # Secure preload bridge
+│   ├── sessionManager.ts        # Session lifecycle & FSM
+│   ├── secureWipe.ts            # Forensic-grade secure wipe engine
+│   ├── uploadServer.ts          # QR-based local upload server
+│   └── policyEngine.ts          # Policy enforcement & AI integration
+│
+├── renderer/
+│   ├── next-app/                # Next.js UI application
+│   │   ├── app/                 # App Router pages (UI routes)
+│   │   ├── .next/               # Next.js build cache
+│   │   ├── next.config.js       # Next.js configuration (static export)
+│   │   ├── tsconfig.json        # TypeScript config for UI
+│   │   └── next-env.d.ts        # Next.js environment types
+│   │
+│   ├── package.json             # Renderer dependencies & scripts
+│   └── package-lock.json
+│
+├── .gitignore                   # Git ignore rules
+├── README.md                    # Project documentation
+├── SECURITY.md                  # Security model & guarantees
+├── AI_SETUP.md                  # AI policy engine setup guide
+│
+├── package.json                 # Root project config (Electron + Builder)
+├── package-lock.json
+└── tsconfig.json                # Global TypeScript configuration
+
+```
+
+### Structure Highlights
+
+- **`electron/`**  
+  Contains all privileged system logic including session control, secure wiping, upload server, and policy enforcement.
+
+- **`renderer/`**  
+  Houses the Next.js-based UI, exported as static files and loaded by Electron.
+
+- **`assets/`**  
+  Stores application branding assets such as icons.
+
+- **Documentation Files (`README.md`, `SECURITY.md`, `AI_SETUP.md`)**  
+  Clearly separate usage, security guarantees, and AI configuration details.
+
+This structure ensures **clear separation of concerns**, improved security, and easier scalability.
+```
