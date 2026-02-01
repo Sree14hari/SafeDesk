@@ -2,7 +2,8 @@
 
 /* Keep font size logical same as English, just adjust line-height for script complexity */
 .bh-container[data-lang="ml"] {
-  /* No font-size increase */
+  font-size: 0.9em; /* Adjusted for visibility. 0.4 was too small/invalid. */
+  font-weight: 500; /* Ensure text isn't too thin */
 }
 
 /* Ensure Titles are readable but not huge */

@@ -52,7 +52,8 @@ export class UploadServer extends EventEmitter {
                 console.log(`[UploadServer] Secure channel locked to device: ${this.connectedIp}`);
             }
 
-            res.send(this.getMobilePageHtml(token));
+            const isUploaded = req.query.uploaded === 'true';
+            res.send(this.getMobilePageHtml(token, isUploaded));
         });
 
         // 2. File Upload Handler
@@ -100,7 +101,8 @@ export class UploadServer extends EventEmitter {
                 
                 if (count > 0) {
                     // Return same page but in "Waiting" mode
-                    res.send(this.getMobilePageHtml(token, true));
+                    // Post-Redirect-Get to prevent re-submission on reload
+                    res.redirect(`/upload?token=${token}&uploaded=true`);
                 } else {
                     res.status(400).send('No file received.');
                 }

@@ -87,8 +87,11 @@ export class SessionManager extends EventEmitter {
 
         try {
             const stats = await fs.stat(filePath);
+            const name = path.basename(filePath);
+            if (this.importedFiles.some(f => f.name === name)) return;
+
             const metadata: FileMetadata = {
-                name: path.basename(filePath),
+                name,
                 size: stats.size,
                 originalPath: null, // No local source to wipe outside session
                 source: 'UPLOAD'
@@ -492,8 +495,11 @@ export class SessionManager extends EventEmitter {
        if (this.state !== 'ACTIVE_SESSION') throw new Error("No active session");
        this.notifyActivity();
        const stats = await fs.stat(scanPath);
+       const name = path.basename(scanPath);
+       if (this.importedFiles.some(f => f.name === name)) return this.importedFiles;
+
        const metadata: FileMetadata = {
-           name: path.basename(scanPath),
+           name,
            size: stats.size,
            originalPath: null,
            source: 'SCAN'

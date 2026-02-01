@@ -1,11 +1,12 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from './LanguageContext';
-import { LanguageSwitcher } from './LanguageSwitcher';
+
 import { 
   Shield, 
   Trash2, 
+  Power, 
   FileUp, 
   ScanLine, 
   Printer, 
@@ -71,21 +72,25 @@ export default function Home() {
       pictures: false
   });
 
+  const listenersRegistered = useRef(false);
+
   useEffect(() => {
-    if (window.electronAPI) {
-      window.electronAPI.onSessionStatus((_event, value) => {
+    if (window.electronAPI && !listenersRegistered.current) {
+      listenersRegistered.current = true;
+      
+      const handleSessionStatus = (_event: any, value: string) => {
           setStatus(value);
           if (value.includes('Scann') || value.includes('Print')) setIsProcessing(false); 
-      });
+      };
 
-      window.electronAPI.onSessionCreated((_event, id) => {
+      const handleSessionCreated = (_event: any, id: string) => {
         setStatus(`Session Active`);
         setFiles([]); 
         setEndReason(null);
         setWipeFailures([]);
-      });
+      };
 
-      window.electronAPI.onSessionEnded((_event, reason, failures) => {
+      const handleSessionEnded = (_event: any, reason: string, failures: string[]) => {
           setSessionInfo({ id: null, startTime: null, totalSize: 0, fileCount: 0 });
           setFiles([]);
           setStatus('No Active Session');
@@ -97,17 +102,27 @@ export default function Home() {
               setEndReason(`Session Ended (${reason}). Original source files and session copies have been securely destroyed.`);
               setWipeFailures([]);
           }
-      });
+      };
 
-      window.electronAPI.onFilesUpdated((_event, updatedFiles) => {
+      const handleFilesUpdated = (_event: any, updatedFiles: any) => {
          console.log('Files updated:', updatedFiles);
-         setFiles(updatedFiles);
+         // Deduplicate files by name to prevent UI duplicates
+         const uniqueFiles = updatedFiles.filter((file: any, index: number, self: any[]) => 
+             index === self.findIndex((f: any) => f.name === file.name)
+         );
+         setFiles(uniqueFiles);
          setIsProcessing(false);
-      });
+      };
       
-      window.electronAPI.onSessionInfoUpdated((_event, info) => {
+      const handleSessionInfoUpdated = (_event: any, info: any) => {
           setSessionInfo(info);
-      });
+      };
+
+      window.electronAPI.onSessionStatus(handleSessionStatus);
+      window.electronAPI.onSessionCreated(handleSessionCreated);
+      window.electronAPI.onSessionEnded(handleSessionEnded);
+      window.electronAPI.onFilesUpdated(handleFilesUpdated);
+      window.electronAPI.onSessionInfoUpdated(handleSessionInfoUpdated);
     }
   }, []);
 
@@ -266,6 +281,28 @@ export default function Home() {
                     </button>
                     </>
                 )}
+                {!sessionInfo.id && (
+                <button 
+                  onClick={handleEndSession} 
+                  title="Force End All Sessions"
+                  style={{
+                    background:'none', 
+                    border:'none', 
+                    cursor:'pointer', 
+                    padding:'8px', 
+                    borderRadius:'8px', 
+                    display:'flex', 
+                    alignItems:'center', 
+                    justifyContent:'center',
+                    color: '#DC2626', // Red
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#FEE2E2'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                >
+                    <Power size={20} />
+                </button>
+                )}
                 <button 
                   onClick={() => router.push('/settings')} 
                   style={{
@@ -285,7 +322,7 @@ export default function Home() {
                 >
                     <Settings size={20} />
                 </button>
-                <LanguageSwitcher />
+
         </div>
       </header>
 
@@ -439,28 +476,7 @@ export default function Home() {
 
 
 
-                {/* Privacy Footprint - Live Dashboard (Only after Secure Destruction) */}
-                {endReason && (
-                    <div className="bh-card" style={{ marginTop: '30px', borderTop: '4px solid var(--bh-green)', padding: '25px' }}>
-                        <h3 style={{ marginTop: 0, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <Shield size={20} color="green" /> {t('privacyFootprint')}
-                        </h3>
-                        
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '20px 0' }}>
-                            <StatusItem label={t('fpActiveSessions')} value="0" />
-                            <StatusItem label={t('fpSessionFolders')} value="0" />
-                            <StatusItem label={t('fpBrowserCache')} value="Clean" />
-                            <StatusItem label={t('scan_downloads')} value="Clean" />
-                            <StatusItem label={t('scan_desktop')} value="Clean" />
-                            <StatusItem label={t('fpPrintSpool')} value="Empty" />
-                            <StatusItem label={t('fpTempFiles')} value="Clean" />
-                        </div>
 
-                        <div style={{ background: '#e6f4ea', color: '#137333', padding: '15px', borderRadius: '8px', textAlign: 'center', fontWeight: 800, border: '1px solid #ceead6' }}>
-                            {t('zeroData')}
-                        </div>
-                    </div>
-                )}
             </div>
         )}
 
