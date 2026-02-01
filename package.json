@@ -1,5 +1,5 @@
 {
-  "name": "secure-engine",
+  "name": "safedesk",
   "version": "0.1.0",
   "private": true,
   "main": "dist/electron/main.js",
@@ -12,6 +12,20 @@
     "electron:build": "tsc -p electron/tsconfig.json",
     "build": "npm run next:build && npm run electron:build",
     "start": "electron ."
+  },
+  "build": {
+    "directories": {
+      "output": "dist/installers"
+    },
+    "win": {
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "icon": "assets/icon.png"
+    }
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

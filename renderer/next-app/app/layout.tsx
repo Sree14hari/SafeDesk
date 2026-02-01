@@ -4,7 +4,7 @@ import React from 'react';
 import { LanguageProvider } from './LanguageContext';
 
 export const metadata = {
-  title: 'Secure App',
+  title: 'SafeDesk',
   description: 'Secure Electron Application',
 };
 

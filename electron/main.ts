@@ -19,7 +19,12 @@ function createWindow() {
       sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
     },
+    icon: path.join(__dirname, '../../assets/icon.png'),
+    show: false
   });
+  
+  mainWindow.maximize();
+  mainWindow.show();
   
   // Anti-Screenshot Protection
   mainWindow.setContentProtection(true);

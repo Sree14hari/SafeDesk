@@ -1,7 +1,7 @@
 export const translations = {
   en: {
     // Header
-    appName: "SecureEngine",
+    appName: "SafeDesk",
     customerMode: "Customer Mode",
     ownerMode: "Owner Mode",
     
@@ -35,7 +35,7 @@ export const translations = {
     riskHigh: "HIGH",
     
     // Trust & Security
-    trustTitle: "How SecureEngine Protects You",
+    trustTitle: "How SafeDesk Protects You",
     trustPoint1: "All files are destroyed after your session",
     trustPoint2: "No data is saved or uploaded to the cloud",
     trustPoint3: "Session auto-ends after inactivity",
@@ -113,7 +113,7 @@ export const translations = {
   
   hi: {
     // Header
-    appName: "सिक्योर इंजन",
+    appName: "सेफडेस्क",
     customerMode: "ग्राहक मोड",
     ownerMode: "मालिक मोड",
     
@@ -147,7 +147,7 @@ export const translations = {
     riskHigh: "उच्च",
     
     // Trust & Security
-    trustTitle: "सिक्योर इंजन आपकी सुरक्षा कैसे करता है",
+    trustTitle: "सेफडेस्क आपकी सुरक्षा कैसे करता है",
     trustPoint1: "आपके सत्र के बाद सभी फ़ाइलें नष्ट कर दी जाती हैं",
     trustPoint2: "कोई डेटा सहेजा या क्लाउड पर अपलोड नहीं किया जाता",
     trustPoint3: "निष्क्रियता के बाद सत्र स्वतः समाप्त हो जाता है",
@@ -226,7 +226,7 @@ export const translations = {
 
   ml: {
     // Header
-    appName: "സെക്യൂർ എഞ്ചിൻ",
+    appName: "സേഫ്ഡെസ്ക്",
     customerMode: "കസ്റ്റമർ മോഡ്",
     ownerMode: "ഓണർ മോഡ്",
     
