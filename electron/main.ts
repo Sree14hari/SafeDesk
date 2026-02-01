@@ -143,6 +143,17 @@ app.whenReady().then(async () => {
           console.error('Error launching browser:', err);
       }
   });
+  ipcMain.handle('task:send-to-mobile', async (event, fileName: string) => {
+      try {
+          await sessionManager.shareFileToMobile(fileName);
+          event.sender.send('session:status', `Shared ${fileName} to mobile device.`);
+          return true;
+      } catch (err: any) {
+          console.error('Error sharing to mobile:', err);
+          event.sender.send('session:status', `Share Error: ${err.message}`);
+          throw err;
+      }
+  });
 
   ipcMain.on('session:end', (event) => {
       sessionManager.endSession('MANUAL');

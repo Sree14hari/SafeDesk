@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Phase 6: Ephemeral Task Zone
   startTaskSession: () => ipcRenderer.send('task:start'),
   launchTaskBrowser: () => ipcRenderer.send('task:launch-browser'),
+  sendToMobile: (fileName: string) => ipcRenderer.invoke('task:send-to-mobile', fileName),
   
   onSessionStatus: (callback: (event: any, value: string) => void) => 
     ipcRenderer.on('session:status', callback),

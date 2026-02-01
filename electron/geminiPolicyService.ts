@@ -201,9 +201,18 @@ Return ONLY valid JSON in this exact format:
             return this.parseAIResponse(text);
         } catch (error) {
             console.error("[GeminiPolicyService] Gemini error:", error);
+            const msg = (error as any).message || "";
+            // Check for 429 quota reached
+            if (msg.includes('429') || msg.includes('quota') || msg.includes('Too Many Requests')) {
+                 return {
+                    ...DEFAULT_POLICY,
+                    reason: "AI is resting (Quota limit reached)"
+                 };
+            }
+
             return {
                 ...DEFAULT_POLICY,
-                reason: `Gemini Unavailable: ${(error as any).message || "Unknown error"}`
+                reason: `Gemini Unavailable: ${msg || "Unknown error"}`
             };
         }
     }

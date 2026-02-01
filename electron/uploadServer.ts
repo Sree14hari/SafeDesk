@@ -21,6 +21,7 @@ export class UploadServer extends EventEmitter {
         fileName: string 
     } | null = null;
     private multiDeviceAllowed: boolean = false;
+    private exposedFiles: string[] = []; // Files explicitly shared for mobile download
 
     constructor() {
         super();
@@ -130,9 +131,9 @@ export class UploadServer extends EventEmitter {
             if (!token || token !== this.activeToken) return res.status(403).json({ error: 'Auth failed' });
 
             if (this.pendingApproval) {
-                res.json({ pending: true, fileName: this.pendingApproval.fileName });
+                res.json({ pending: true, fileName: this.pendingApproval.fileName, downloads: this.exposedFiles });
             } else {
-                res.json({ pending: false });
+                res.json({ pending: false, downloads: this.exposedFiles });
             }
         });
 
@@ -151,14 +152,43 @@ export class UploadServer extends EventEmitter {
                 res.json({ success: false, error: 'No pending request' });
             }
         });
+
         // 5. End Session Endpoint
         this.app.post('/end-session', (req, res) => {
             const token = req.query.token as string;
-            if (!token || token !== this.activeToken) return res.status(403).json({ error: 'Auth failed' });
+            if (!token || token !== this.activeToken) return res.status(403).send("Forbidden");
             
             this.emit('session-end-requested');
             res.json({ success: true });
         });
+        // 6. Download Endpoint
+        this.app.get('/download/:filename', (req, res) => {
+            const token = req.query.token as string;
+            if (!token || token !== this.activeToken || !this.sessionPath) return res.status(403).send("Forbidden");
+            
+            const clientIp = req.socket.remoteAddress || req.ip;
+            if (!this.multiDeviceAllowed && this.connectedIp && this.connectedIp !== clientIp) {
+                return res.status(403).send("Access Secure Link from the connected device only.");
+            }
+
+            const filename = req.params.filename;
+            // Only allow if in exposed list
+            if (!this.exposedFiles.includes(filename)) {
+                return res.status(404).send("File not shared.");
+            }
+
+            const filePath = path.join(this.sessionPath, filename);
+            if (!fs.existsSync(filePath)) return res.status(404).send("File not found.");
+
+            res.download(filePath, filename);
+        });
+    }
+
+    public exposeFile(filename: string) {
+        if (!this.exposedFiles.includes(filename)) {
+            this.exposedFiles.push(filename);
+            console.log(`[UploadServer] Exposing file for download: ${filename}`);
+        }
     }
 
     public async requestApproval(fileName: string): Promise<boolean> {
@@ -181,6 +211,7 @@ export class UploadServer extends EventEmitter {
             this.activeToken = token;
             this.uploadUsed = false;
             this.pendingApproval = null;
+            this.exposedFiles = []; // Reset exposed files
 
             this.connectedIp = null;
             this.reportData = null;
@@ -333,7 +364,11 @@ export class UploadServer extends EventEmitter {
                         <div class="blink" style="font-weight: 700; color: #d46b08; margin-bottom: 5px;">⚠️ DO NOT CLOSE</div>
                         <div style="font-size: 12px; color: #888;">Please keep this screen open.<br>You will need to authorize printing request from the PC.</div>
                     </div>
-                </div>
+                    </div>
+
+                    <div id="downloadContainer" class="hidden" style="margin-top: 20px; text-align: left; background: #f0f5ff; padding: 15px; border-radius: 8px; border: 1px solid #adc6ff;">
+                        <!-- Downloads injected here -->
+                    </div>
             </div>
 
             <!-- APPROVAL OVERLAY -->
@@ -376,6 +411,23 @@ export class UploadServer extends EventEmitter {
                              if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
                         } else {
                             overlay.classList.add('hidden');
+                        }
+
+                        // Update Downloads
+                        const downloadContainer = document.getElementById('downloadContainer');
+                        if (data.downloads && data.downloads.length > 0) {
+                             downloadContainer.classList.remove('hidden');
+                             downloadContainer.innerHTML = '<h3 style="margin:0 0 10px 0; font-size:14px; text-transform:uppercase;">Files from PC</h3>';
+                             data.downloads.forEach(f => {
+                                 const btn = document.createElement('a');
+                                 btn.href = \`/download/\${f}?token=\${token}\`;
+                                 btn.className = 'btn btn-success';
+                                 btn.style.textDecoration = 'none';
+                                 btn.style.display = 'block';
+                                 btn.style.marginBottom = '8px';
+                                 btn.textContent = '⬇️ ' + f;
+                                 downloadContainer.appendChild(btn);
+                             });
                         }
                     } catch (e) { console.error(e); }
                 }

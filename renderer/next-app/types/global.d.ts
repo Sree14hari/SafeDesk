@@ -46,6 +46,7 @@ declare global {
       
       startTaskSession: () => void;
       launchTaskBrowser: () => void;
+      sendToMobile: (fileName: string) => Promise<boolean>;
       
       onSessionStatus: (callback: (event: any, value: string) => void) => void;
       onSessionCreated: (callback: (event: any, sessionId: string) => void) => void;

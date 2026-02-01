@@ -312,7 +312,12 @@ export class SessionManager extends EventEmitter {
       
       
       if (this.sessionType === 'TASK' && this.sessionPath) {
-          this.taskBrowser = new TaskBrowser(this.sessionPath, this.activeSessionId!);
+          this.taskBrowser = new TaskBrowser(this.sessionPath, this.activeSessionId!, async (filePath) => {
+              console.log(`[SessionManager] Browser downloaded: ${filePath}`);
+              const updatedFiles = await this.registerScan(filePath);
+              this.emit('files-updated', updatedFiles);
+              this.emit('session-info-updated', this.getSessionInfo());
+          });
           // Auto-launch
           try {
               await this.launchBrowser();
@@ -577,6 +582,20 @@ export class SessionManager extends EventEmitter {
     }
 
     return newFiles;
+  }
+
+  public async shareFileToMobile(fileName: string) {
+      if (this.state !== 'ACTIVE_SESSION') return;
+      if (this.sessionType !== 'TASK') {
+          throw new Error('File sharing to mobile is only allowed in Task Zones.');
+      }
+      
+      const file = this.importedFiles.find(f => f.name === fileName);
+      if (!file) throw new Error("File not found in session.");
+      
+      this.uploadServer.exposeFile(fileName);
+      console.log(`[SessionManager] Shared file to mobile: ${fileName}`);
+      await this.auditLogger.logAction("Mobile Share", `Exposed file for download: ${fileName}`);
   }
 
   public getSessionInfo(): SessionInfo {

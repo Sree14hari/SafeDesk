@@ -76,6 +76,11 @@ export default function Home() {
 
   const listenersRegistered = useRef(false);
 
+  const handleSendToMobile = async (fileName: string) => {
+      console.log('Sending to mobile:', fileName);
+      await window.electronAPI.sendToMobile(fileName);
+  };
+
   useEffect(() => {
     if (window.electronAPI && !listenersRegistered.current) {
       listenersRegistered.current = true;
@@ -665,7 +670,18 @@ export default function Home() {
                                 title="Secure Delete"
                                 className="bh-btn bh-btn-danger" style={{padding: '6px'}}>
                                    <Trash2 size={16} />
+                                    <Trash2 size={16} />
                                </button>
+                               {sessionInfo.type === 'TASK' && (
+                                   <button
+                                     onClick={() => handleSendToMobile(file.name)}
+                                     title="Send to Connected Mobile"
+                                     className="bh-btn bh-btn-primary" // Using primary style to highlight
+                                     style={{padding: '6px', background: 'var(--bh-blue)'}} // Blue for send action
+                                   >
+                                       <Smartphone size={16} />
+                                   </button>
+                               )}
                            </div>
                          </div>
                        ))}

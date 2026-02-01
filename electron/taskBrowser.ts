@@ -8,8 +8,11 @@ export class TaskBrowser {
     private sessionPath: string;
     private partitionName: string;
 
-    constructor(sessionPath: string, sessionId: string) {
+    private onDownloadComplete: (filePath: string) => void;
+
+    constructor(sessionPath: string, sessionId: string, onDownloadComplete: (filePath: string) => void) {
         this.sessionPath = sessionPath;
+        this.onDownloadComplete = onDownloadComplete;
         // Use an in-memory partition for true ephemerality: 'memory:sessionId'
         // However, we want to control downloads, so we might need some persistence during the session if the partition requires it for downloads? 
         // No, 'incognito' or memory partition is best.
@@ -59,6 +62,7 @@ export class TaskBrowser {
             item.once('done', (event, state) => {
                 if (state === 'completed') {
                     console.log('Download successfully');
+                    this.onDownloadComplete(item.getSavePath());
                 } else {
                     console.log(`Download failed: ${state}`);
                 }
