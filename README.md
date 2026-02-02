@@ -1,4 +1,4 @@
-# SafeDesk (SecureEngine for Internet Cafe and PrintShops)
+# SafeDesk (SecureEngine for Internet Cafes and Print Shops)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Framework](https://img.shields.io/badge/framework-Electron-47848F)
 ![Frontend](https://img.shields.io/badge/frontend-Next.js-black)
@@ -7,6 +7,10 @@
 ![Architecture](https://img.shields.io/badge/architecture-Session--Based-orange)
 ![Deployment](https://img.shields.io/badge/deployment-Offline%20Ready-green)
 ![Build](https://img.shields.io/badge/build-EXE%20Installer-success)
+![Award](https://img.shields.io/badge/GENESIS%202.0-Runner--Up%20🥈-gold)
+
+> 🏆 **Runner-Up – GENESIS 2.0 National Level Hackathon**  
+> Conducted at *Providence College of Engineering*
 
 ## Overview
 
@@ -17,6 +21,8 @@ The system enables users to perform sensitive tasks—such as document printing,
 Unlike traditional public computer solutions that rely on trust-based cleanup mechanisms, SafeDesk introduces a **proof-based security model**. After every session, users receive **verifiable confirmation of data destruction** through a QR-based compliance report, ensuring transparency and trust.
 
 SafeDesk operates entirely **offline**, without cloud services or persistent backends, and is packaged as a **standalone Windows application**, making it easy to deploy while maintaining strong security guarantees.
+
+This project was developed by **Team R3ACTR** and secured **Second Prize** at **GENESIS 2.0**, a national-level hackathon, for its practical approach to data privacy and secure public computing.
 
 ## Tech Stack
 
