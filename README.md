@@ -1,12 +1,12 @@
 # SafeDesk (SecureEngine for Internet Cafes and Print Shops)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![Framework](https://img.shields.io/badge/framework-Electron-47848F)
+![Framework](https://img.shields.io/badge/framework-Tauri%20v2-24C8D8)
+![Backend](https://img.shields.io/badge/backend-Rust-orange)
 ![Frontend](https://img.shields.io/badge/frontend-Next.js-black)
-![Language](https://img.shields.io/badge/language-TypeScript-blue)
+![Language](https://img.shields.io/badge/language-TypeScript%20%7C%20Rust-blue)
 ![Security](https://img.shields.io/badge/security-Forensic--Grade%20Wipe-red)
 ![Architecture](https://img.shields.io/badge/architecture-Session--Based-orange)
 ![Deployment](https://img.shields.io/badge/deployment-Offline%20Ready-green)
-![Build](https://img.shields.io/badge/build-EXE%20Installer-success)
 ![Award](https://img.shields.io/badge/GENESIS%202.0-Runner--Up%20🥈-gold)
 
 > 🏆 **Runner-Up – GENESIS 2.0 National Level Hackathon**  
@@ -20,99 +20,75 @@ The system enables users to perform sensitive tasks—such as document printing,
 
 Unlike traditional public computer solutions that rely on trust-based cleanup mechanisms, SafeDesk introduces a **proof-based security model**. After every session, users receive **verifiable confirmation of data destruction** through a QR-based compliance report, ensuring transparency and trust.
 
-SafeDesk operates entirely **offline**, without cloud services or persistent backends, and is packaged as a **standalone Windows application**, making it easy to deploy while maintaining strong security guarantees.
+SafeDesk operates entirely **offline**, without cloud services or persistent backends, and is packaged as a **standalone Windows application** powered by **Tauri v2** and **Rust**, ensuring maximum security, minimal memory footprint, and native OS content protection (anti-screenshot).
 
 This project was developed by **Team R3ACTR** and secured **Second Prize** at **GENESIS 2.0**, a national-level hackathon, for its practical approach to data privacy and secure public computing.
 
 ## Tech Stack
 
 ### Core Platform
-- **Electron** – Desktop application framework for building cross-platform native applications using web technologies
-- **Node.js** – Runtime environment for backend logic and system-level operations
+- **Tauri v2** – Ultra-fast, lightweight native desktop framework using native OS webview
+- **Rust** – Memory-safe, high-performance system layer for OS-level operations and security logic
 
-### Frontend (Renderer Process)
-- **Next.js** – UI framework used for building the interactive user interface (statically exported)
+### Frontend
+- **Next.js** – UI framework built with React and TypeScript (statically exported)
 - **React** – Component-based UI development
-- **TypeScript** – Type-safe development for improved reliability and maintainability
+- **TypeScript** – Type-safe UI and bridge interfaces
 
-### Backend / System Layer (Main Process)
-- **TypeScript** – Core language for session management, security logic, and system orchestration
-- **Electron Main Process APIs** – File system access, process control, and OS-level integrations
+### Backend / System Layer
+- **Rust** – Core language for session lifecycle, forensic wipe engine, residue scanner, and server
+- **Native OS APIs** – Windows content protection (Anti-Screenshot `SetWindowDisplayAffinity`), file locks, and attributes
 
 ### Security & Data Handling
-- **Custom Secure Wipe Engine** – Multi-stage data sanitization (overwrite, rename obfuscation, unlink, force delete)
-- **Ephemeral Session Directories** – Session-bound, temporary storage ensuring zero persistence
-- **Memory-Only Browser Partition** – Prevents cache, cookies, and credential storage
-
-### AI & Policy Engine
-- **Google Gemini 2.5 Flash** (via OpenRouter) – AI-assisted policy advisor for dynamic security decisions
-- **Policy Engine** – Rule-based enforcement combined with AI recommendations
+- **Forensic Secure Wipe Engine** – Multi-pass sanitization (CSPRNG random overwrite, sync, rename obfuscation, unlink)
+- **Ephemeral Session Directories** – Session-bound, temporary workspaces ensuring zero residual data
+- **Residue Guard** – Sensitive file residue scanner and cleaner for Desktop, Downloads, and Documents
 
 ### Mobile & Networking
-- **Local HTTP Server** – Secure, ephemeral upload server for QR-based mobile file transfers
-- **QR Code Integration** – Enables fast, contactless multi-device connectivity
+- **Embedded Local HTTP Server** – Ephemeral server in Rust for contactless QR-based mobile file transfers
+- **QR Code Integration** – Rapid mobile-to-kiosk connectivity without external cables
 
 ### Build & Deployment
-- **Electron Builder** – Packaging and distribution as a standalone Windows executable
-- **NSIS** – Installer generation for Windows
-- **npm** – Dependency management and build scripting
+- **Cargo & Tauri CLI** – Native executable packaging for Windows
+- **npm** – Frontend dependency management and build scripting
 
-### Operating System
-- **Windows** – Primary target platform for deployment
-
+---
 
 ## File Structure
 
-The project follows a modular structure separating the **Electron core**, **UI renderer**, and **assets**, ensuring maintainability and clear responsibility boundaries.
+The project follows a clean, decoupled structure separating the **Tauri Rust backend**, **Next.js frontend UI**, and **assets**:
 
 ```markdown
-SecureEngine/
-├── assets/
-│   └── icon.png                 # Application icon (used in build/installer)
+SafeDesk/
+├── assets/                      # Application branding & source icons
+│   └── icon.png
 │
-├── electron/
-│   ├── main.ts                  # Electron main process entry
-│   ├── preload.ts               # Secure preload bridge
-│   ├── sessionManager.ts        # Session lifecycle & FSM
-│   ├── secureWipe.ts            # Forensic-grade secure wipe engine
-│   ├── uploadServer.ts          # QR-based local upload server
-│   └── policyEngine.ts          # Policy enforcement & AI integration
+├── src-tauri/                   # Tauri v2 Rust Backend
+│   ├── Cargo.toml               # Rust dependencies & manifest
+│   ├── tauri.conf.json          # Tauri configuration & window rules
+│   ├── capabilities/            # Window & plugin security permissions
+│   ├── icons/                   # Native Windows & multi-platform icons
+│   └── src/
+│       ├── main.rs              # Desktop executable entry
+│       ├── lib.rs               # Tauri commands, events & anti-screenshot
+│       ├── session_manager.rs   # Ephemeral session lifecycle & FSM
+│       ├── secure_wipe.rs       # Forensic-grade multi-pass wipe engine
+│       ├── residue_scanner.rs   # Desktop & Downloads residue detection
+│       ├── upload_server.rs     # Embedded QR mobile file transfer server
+│       └── audit_logger.rs      # Privacy-first immutable audit logger
 │
-├── renderer/
-│   ├── next-app/                # Next.js UI application
-│   │   ├── app/                 # App Router pages (UI routes)
-│   │   ├── .next/               # Next.js build cache
-│   │   ├── next.config.js       # Next.js configuration (static export)
-│   │   ├── tsconfig.json        # TypeScript config for UI
-│   │   └── next-env.d.ts        # Next.js environment types
-│   │
-│   ├── package.json             # Renderer dependencies & scripts
-│   └── package-lock.json
+├── src/                         # Next.js Frontend Application
+│   ├── app/                     # Next.js App Router (pages, styles, contexts)
+│   ├── types/                   # TypeScript definitions
+│   └── lib/
+│       └── tauriBridge.ts       # Tauri invoke/listen IPC bridge
 │
-├── .gitignore                   # Git ignore rules
+├── next.config.js               # Next.js static export configuration
+├── tsconfig.json                # TypeScript project configuration
+├── package.json                 # Project scripts & frontend dependencies
 ├── README.md                    # Project documentation
-├── SECURITY.md                  # Security model & guarantees
-├── AI_SETUP.md                  # AI policy engine setup guide
-│
-├── package.json                 # Root project config (Electron + Builder)
-├── package-lock.json
-└── tsconfig.json                # Global TypeScript configuration
-
-```
-
-### Structure Highlights
-
-- **`electron/`**  
-  Contains all privileged system logic including session control, secure wiping, upload server, and policy enforcement.
-
-- **`renderer/`**  
-  Houses the Next.js-based UI, exported as static files and loaded by Electron.
-
-- **`assets/`**  
-  Stores application branding assets such as icons.
-
-- **Documentation Files (`README.md`, `SECURITY.md`, `AI_SETUP.md`)**  
-  Clearly separate usage, security guarantees, and AI configuration details.
+├── SECURITY.md                  # Security guarantees
+└── .gitignore
 
 
 ## Installation
